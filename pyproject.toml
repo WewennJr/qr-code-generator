@@ -1,0 +1,17 @@
+[project]
+name = "qr-code-generator"
+version = "0.1.0"
+description = "A simple web application for generating QR codes from text or URLs."
+readme = "README.md"
+authors = [
+    { name = "WewennJr", email = "ewennlegros@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "qrcode[pil]>=8.2",
+    "flask>=3.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
