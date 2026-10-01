@@ -22,15 +22,17 @@ uv sync
 uv run python -m src.qr_code_generator.app
 ```
 
-Open http://127.0.0.1:5000 in your browser.
+Open http://127.0.0.1:5002 in your browser.
 
 ## Project Structure
 
 ```
 src/qr_code_generator/
 ├── app.py              # Flask application
+├── static/
+│   ├── style.css       # Custom CSS styles
 └── templates/
-    └── index.html      # Frontend template with embedded CSS/JS
+    └── index.html      # Frontend template
 ```
 
 ## Requirements

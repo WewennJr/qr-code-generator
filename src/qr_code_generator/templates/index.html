@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Générateur de QR Code</title>
+    <title>{{ translations.title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Générateur de QR Code</h1>
-        <p class="subtitle">Entrez une URL pour générer votre QR code</p>
+        <h1>{{ translations.title }}</h1>
+        <p class="subtitle">{{ translations.subtitle }}</p>
 
         {% if error %}
         <div class="error">{{ error }}</div>
@@ -17,7 +17,7 @@
 
         <form method="POST" action="/">
             <div class="form-group">
-                <label for="url">URL</label>
+                <label for="url">{{ translations.url_label }}</label>
                 <input
                     type="url"
                     id="url"
@@ -25,24 +25,46 @@
                     placeholder="https://example.com"
                     required
                     autocomplete="url"
+                    value="{{ request.form.get('url', '') }}"
                 >
             </div>
 
             <div class="btn-group">
-                <button type="submit" class="btn btn-primary">Générer</button>
+                <button type="submit" class="btn btn-primary">
+                    {{ translations.generate }}
+                </button>
             </div>
         </form>
 
         {% if qr_code_data %}
         <div class="qr-result">
-            <h2>Votre QR Code</h2>
+            <h2>{{ translations.qr_result }}</h2>
+
             <div class="qr-image">
-                <img src="data:image/png;base64,{{ qr_code_data }}" alt="QR Code généré">
+                <img
+                    src="data:image/png;base64,{{ qr_code_data }}"
+                    alt="{{ translations.qr_alt }}"
+                >
             </div>
+
             <form method="POST" action="/download" class="qr-actions">
-                <input type="hidden" name="url" value="{{ request.form.url }}">
-                <button type="submit" class="btn btn-primary">Télécharger</button>
-                <button type="button" class="btn btn-secondary" onclick="copyToClipboard()">Copier</button>
+                <input
+                    type="hidden"
+                    name="url"
+                    value="{{ request.form.url }}"
+                >
+
+                <button type="submit" class="btn btn-primary">
+                    {{ translations.download }}
+                </button>
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="copyToClipboard()"
+                >
+                    {{ translations.copy_button }}
+                </button>
             </form>
         </div>
         {% endif %}
@@ -56,13 +78,15 @@
             try {
                 const response = await fetch(img.src);
                 const blob = await response.blob();
+
                 await navigator.clipboard.write([
                     new ClipboardItem({ 'image/png': blob })
                 ]);
-                alert('QR Code copié dans le presse-papiers !');
+
+                alert('{{ translations.copy_success }}');
             } catch (err) {
-                console.error('Erreur lors de la copie:', err);
-                alert('Impossible de copier. Utilisez le bouton Télécharger.');
+                console.error('{{ translations.copy_error_console }}', err);
+                alert('{{ translations.copy_error }}');
             }
         }
     </script>

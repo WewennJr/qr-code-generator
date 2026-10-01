@@ -1,0 +1,18 @@
+{
+    "title": "Générateur de QR Code",
+    "subtitle": "Entrez une URL pour générer votre QR code",
+    "url_label": "URL",
+    "generate": "Générer",
+    "qr_result": "Votre QR Code",
+    "qr_alt": "QR Code généré",
+    "download": "Télécharger",
+    "copy_button": "Copier",
+    "copy_success": "QR Code copié dans le presse-papiers !",
+    "copy_error_console": "Erreur lors de la copie :",
+    "copy_error": "Impossible de copier. Utilisez le bouton Télécharger.",
+    "errors": {
+        "empty_url": "Veuillez entrer une URL",
+        "invalid_url": "L'URL doit commencer par http:// ou https://",
+        "generation": "Erreur lors de la génération"
+    }
+}
