@@ -1,57 +1,5 @@
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environment
 .venv/
-venv/
-env/
-ENV/
 
-# Environment variables
-.env
-.env.*
-!.env.example
-
-# Build / packaging
-build/
-dist/
-*.egg-info/
-.eggs/
-
-# uv
-# Keep uv.lock tracked for applications.
-
-# Flask
-instance/
-.webassets-cache/
-
-# Test / coverage
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-
-# Type checkers / linters
-.mypy_cache/
-.ruff_cache/
-.pyright/
-
-# IDEs / editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Local database
-*.db
-*.sqlite
-*.sqlite3
+*.sh
