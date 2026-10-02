@@ -1,6 +1,7 @@
 {
     "title": "QR Code Generator",
     "subtitle": "Enter a URL to generate your QR code",
+    "description": "Easily generate QR codes from your URLs online for free.",
     "url_label": "URL",
     "generate": "Generate",
     "qr_result": "Your QR Code",

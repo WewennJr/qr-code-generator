@@ -3,9 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>{{ translations.title }}</title>
+    <meta name="description" content="{{ translations.description }}">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://qrcode.vynkor.fr/">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+
+    <meta property="og:title" content="{{ translations.title }}">
+    <meta property="og:description" content="{{ translations.description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://qrcode.vynkor.fr/">
 </head>
 <body>
     <div class="container">
