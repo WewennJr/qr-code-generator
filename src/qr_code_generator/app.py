@@ -27,7 +27,7 @@ def load_translations(language: str) -> dict:
 
 
 def get_language() -> str:
-    return request.accept_languages.best_match(["fr", "en"]) or "en"
+    return request.accept_languages.best_match(["fr", "en", "es", "de", "it", "pt", "nl", "pl"]) or "en"
 
 
 def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
