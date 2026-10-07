@@ -23,9 +23,18 @@
     "add_color": "Add Color",
     "remove": "Remove",
     "drag_handle": "Drag to reorder",
+    "logo_title": "Logo",
+    "logo_import": "Import",
+    "logo_hint": "PNG, JPG, SVG - Max 2 MB",
+    "logo_preview": "Logo preview",
+    "logo_remove": "Remove logo",
+    "logo_no_preview": "No logo selected",
+    "logo_invalid_type": "File must be an image",
+    "logo_too_large": "Image must not exceed 2 MB",
     "errors": {
         "empty_url": "Please enter a URL",
         "invalid_url": "The URL must start with http:// or https://",
-        "generation": "Error while generating the QR code"
+        "generation": "Error while generating the QR code",
+        "logo_too_large": "Logo must not exceed 2 MB"
     }
 }

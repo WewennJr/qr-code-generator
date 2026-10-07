@@ -23,9 +23,18 @@
     "add_color": "Ajouter une couleur",
     "remove": "Retirer",
     "drag_handle": "Glisser pour réorganiser",
+    "logo_title": "Logo",
+    "logo_import": "Importer",
+    "logo_hint": "PNG, JPG, SVG - Max 2 Mo",
+    "logo_preview": "Aperçu du logo",
+    "logo_remove": "Retirer le logo",
+    "logo_no_preview": "Aucun logo sélectionné",
+    "logo_invalid_type": "Le fichier doit être une image",
+    "logo_too_large": "L'image ne doit pas dépasser 2 Mo",
     "errors": {
         "empty_url": "Veuillez entrer une URL",
         "invalid_url": "L'URL doit commencer par http:// ou https://",
-        "generation": "Erreur lors de la génération"
+        "generation": "Erreur lors de la génération",
+        "logo_too_large": "Le logo ne doit pas dépasser 2 Mo"
     }
 }

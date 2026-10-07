@@ -19,7 +19,7 @@ uv sync
 ## Usage
 
 ```bash
-uv run python -m qr_code_generator.app
+uv run qr_code_generator
 ```
 
 Open http://127.0.0.1:5002 in your browser.

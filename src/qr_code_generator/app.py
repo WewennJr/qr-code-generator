@@ -12,6 +12,9 @@ app = Flask(__name__)
 
 TRANSLATIONS_DIR = Path(__file__).parent / "translations"
 
+MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB
+LOGO_MAX_DIMENSION = 0.22  # Logo max 22% of QR code size for scannability
+
 
 def load_translations(language: str) -> dict:
     translation_file = TRANSLATIONS_DIR / f"{language}.json"
@@ -57,16 +60,64 @@ def generate_gradient_colors(colors: List[str], steps: int) -> List[Tuple[int, i
     return gradient[:steps]
 
 
+def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes) -> Image.Image:
+    try:
+        logo_img = Image.open(io.BytesIO(logo_data))
+        
+        if logo_img.mode != "RGBA":
+            logo_img = logo_img.convert("RGBA")
+        
+        qr_width, qr_height = qr_img.size
+        max_logo_size = int(min(qr_width, qr_height) * LOGO_MAX_DIMENSION)
+        
+        logo_img.thumbnail((max_logo_size, max_logo_size), Image.Resampling.LANCZOS)
+        
+        logo_width, logo_height = logo_img.size
+        
+        padding = 12
+        bg_size = max(logo_width, logo_height) + 2 * padding
+        bg_img = Image.new("RGBA", (bg_size, bg_size), (255, 255, 255, 255))
+        
+        bg_x = (bg_size - logo_width) // 2
+        bg_y = (bg_size - logo_height) // 2
+        bg_img.paste(logo_img, (bg_x, bg_y), logo_img)
+        
+        qr_x = (qr_width - bg_size) // 2
+        qr_y = (qr_height - bg_size) // 2
+        
+        qr_img = qr_img.convert("RGBA")
+        qr_img.paste(bg_img, (qr_x, qr_y), bg_img)
+        
+        return qr_img.convert("RGB")
+    except Exception:
+        return qr_img
+
+
+def is_finder_pattern(x: int, y: int, size: int, border: int) -> bool:
+    """Check if coordinates are within finder pattern areas (7x7 modules at 3 corners)."""
+    # Top-left finder
+    if border <= x < border + 7 and border <= y < border + 7:
+        return True
+    # Top-right finder
+    if border <= x < border + 7 and size - border - 7 <= y < size - border:
+        return True
+    # Bottom-left finder
+    if size - border - 7 <= x < size - border and border <= y < border + 7:
+        return True
+    return False
+
+
 def generate_qr_code(
     data: str,
     fill_color: str = "#000000",
     back_color: str = "#ffffff",
     gradient_colors: Optional[List[str]] = None,
-    gradient_direction: str = "vertical"
+    gradient_direction: str = "vertical",
+    logo_data: Optional[bytes] = None
 ) -> io.BytesIO:
     qr = qrcode.QRCode(
         version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
         box_size=10,
         border=4,
     )
@@ -77,36 +128,48 @@ def generate_qr_code(
     size = len(matrix)
     box_size = 10
     border = 4
-    img_size = (size + 2 * border) * box_size
+    img_size = size * box_size
     
     img = Image.new("RGB", (img_size, img_size), hex_to_rgb(back_color))
     draw = ImageDraw.Draw(img)
     
+    module_count = size - 2 * border
+    fill_rgb = hex_to_rgb(fill_color)
+    
     if gradient_colors and len(gradient_colors) >= 2:
-        gradient = generate_gradient_colors(gradient_colors, size)
+        gradient = generate_gradient_colors(gradient_colors, module_count)
         
         for y, row in enumerate(matrix):
             for x, cell in enumerate(row):
                 if cell:
-                    px = (x + border) * box_size
-                    py = (y + border) * box_size
+                    px = x * box_size
+                    py = y * box_size
                     
-                    if gradient_direction == "horizontal":
-                        color = gradient[x]
-                    elif gradient_direction == "diagonal":
-                        color = gradient[min(x + y, size - 1)]
+                    # Keep finder patterns solid for scannability
+                    if is_finder_pattern(x, y, size, border):
+                        color = fill_rgb
                     else:
-                        color = gradient[y]
+                        gx = x - border
+                        gy = y - border
+                        
+                        if gradient_direction == "horizontal":
+                            color = gradient[max(0, min(gx, module_count - 1))]
+                        elif gradient_direction == "diagonal":
+                            color = gradient[max(0, min(gx + gy, module_count - 1))]
+                        else:
+                            color = gradient[max(0, min(gy, module_count - 1))]
                     
                     draw.rectangle([px, py, px + box_size, py + box_size], fill=color)
     else:
-        fill_rgb = hex_to_rgb(fill_color)
         for y, row in enumerate(matrix):
             for x, cell in enumerate(row):
                 if cell:
-                    px = (x + border) * box_size
-                    py = (y + border) * box_size
+                    px = x * box_size
+                    py = y * box_size
                     draw.rectangle([px, py, px + box_size, py + box_size], fill=fill_rgb)
+    
+    if logo_data:
+        img = embed_logo_in_qr(img, logo_data)
     
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -128,6 +191,7 @@ def index():
         "gradient_colors": ["#000000"],
         "gradient_direction": "vertical",
         "use_gradient": False,
+        "logo_preview": None,
     }
 
     if request.method == "POST":
@@ -143,6 +207,17 @@ def index():
             if color:
                 gradient_colors.append(color)
 
+        logo_file = request.files.get("logo")
+        logo_data = None
+        logo_preview = None
+        
+        if logo_file and logo_file.filename:
+            logo_data = logo_file.read()
+            if len(logo_data) > MAX_LOGO_SIZE:
+                error = translations["errors"]["logo_too_large"]
+            else:
+                logo_preview = base64.b64encode(logo_data).decode("utf-8")
+
         form_data.update({
             "url": url,
             "fill_color": fill_color,
@@ -150,13 +225,14 @@ def index():
             "gradient_colors": gradient_colors if gradient_colors else ["#000000"],
             "gradient_direction": gradient_direction,
             "use_gradient": use_gradient,
+            "logo_preview": logo_preview,
         })
 
         if not url:
             error = translations["errors"]["empty_url"]
         elif not (url.startswith("http://") or url.startswith("https://")):
             error = translations["errors"]["invalid_url"]
-        else:
+        elif not error:
             try:
                 if use_gradient and len(gradient_colors) >= 2:
                     buf = generate_qr_code(
@@ -165,9 +241,10 @@ def index():
                         back_color=back_color,
                         gradient_colors=gradient_colors,
                         gradient_direction=gradient_direction,
+                        logo_data=logo_data,
                     )
                 else:
-                    buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color)
+                    buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color, logo_data=logo_data)
                 qr_code_data = base64.b64encode(buf.getvalue()).decode("utf-8")
             except Exception as e:
                 error = f'{translations["errors"]["generation"]}: {str(e)}'
@@ -196,6 +273,14 @@ def download():
         if color:
             gradient_colors.append(color)
 
+    logo_file = request.files.get("logo")
+    logo_data = None
+    
+    if logo_file and logo_file.filename:
+        logo_data = logo_file.read()
+        if len(logo_data) > MAX_LOGO_SIZE:
+            return "Logo too large (max 2MB)", 400
+
     if not url or not (url.startswith("http://") or url.startswith("https://")):
         return "Invalid URL", 400
 
@@ -207,9 +292,10 @@ def download():
                 back_color=back_color,
                 gradient_colors=gradient_colors,
                 gradient_direction=gradient_direction,
+                logo_data=logo_data,
             )
         else:
-            buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color)
+            buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color, logo_data=logo_data)
     except Exception:
         return "Generation error", 500
 
