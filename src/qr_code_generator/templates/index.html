@@ -36,9 +36,67 @@
                     placeholder="https://example.com"
                     required
                     autocomplete="url"
-                    value="{{ request.form.get('url', '') }}"
+                    value="{{ form_data.url }}"
                 >
             </div>
+
+            <fieldset class="form-group color-section">
+                <legend>{{ translations.colors_title }}</legend>
+                
+                <div class="color-mode-toggle">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="use_gradient" name="use_gradient" {% if form_data.use_gradient %}checked{% endif %} onchange="toggleGradientMode()">
+                        <span class="toggle-slider"></span>
+                        {{ translations.gradient_mode }}
+                    </label>
+                </div>
+
+                <div id="solid-colors" class="color-options {% if form_data.use_gradient %}hidden{% endif %}">
+                    <div class="color-picker-group">
+                        <label for="fill_color">{{ translations.fill_color }}</label>
+                        <div class="color-input-wrapper">
+                            <input type="color" id="fill_color" name="fill_color" value="{{ form_data.fill_color }}">
+                            <input type="text" class="color-hex" value="{{ form_data.fill_color }}" readonly>
+                        </div>
+                    </div>
+                    <div class="color-picker-group">
+                        <label for="back_color">{{ translations.back_color }}</label>
+                        <div class="color-input-wrapper">
+                            <input type="color" id="back_color" name="back_color" value="{{ form_data.back_color }}">
+                            <input type="text" class="color-hex" value="{{ form_data.back_color }}" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="gradient-colors" class="color-options {% if not form_data.use_gradient %}hidden{% endif %}">
+                    <div class="gradient-direction-group">
+                        <label for="gradient_direction">{{ translations.gradient_direction }}</label>
+                        <select id="gradient_direction" name="gradient_direction">
+                            <option value="vertical" {% if form_data.gradient_direction == 'vertical' %}selected{% endif %}>{{ translations.vertical }}</option>
+                            <option value="horizontal" {% if form_data.gradient_direction == 'horizontal' %}selected{% endif %}>{{ translations.horizontal }}</option>
+                            <option value="diagonal" {% if form_data.gradient_direction == 'diagonal' %}selected{% endif %}>{{ translations.diagonal }}</option>
+                        </select>
+                    </div>
+                    
+                    <div class="gradient-stops" id="gradient-stops">
+                        {% set gradient_colors = form_data.gradient_colors if form_data.gradient_colors|length >= 2 else ['#000000', '#ff0000'] %}
+                        {% for i in range(gradient_colors|length) %}
+                        <div class="gradient-stop" data-index="{{ i }}" draggable="true">
+                            <span class="drag-handle" aria-label="{{ translations.drag_handle }}">⋮⋮</span>
+                            <div class="stop-content">
+                                <label>{{ translations.color_stop }} {{ i + 1 }}</label>
+                                <div class="color-input-wrapper">
+                                    <input type="color" name="gradient_color_{{ i }}" value="{{ gradient_colors[i] }}">
+                                    <input type="text" class="color-hex" value="{{ gradient_colors[i] }}" readonly>
+                                </div>
+                                <button type="button" class="btn btn-icon remove-stop" onclick="removeGradientStop(this)" aria-label="{{ translations.remove }}">−</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn btn-secondary add-stop" onclick="addGradientStop()">{{ translations.add_color }}</button>
+                </div>
+            </fieldset>
 
             <div class="btn-group">
                 <button type="submit" class="btn btn-primary">
@@ -59,11 +117,14 @@
             </div>
 
             <form method="POST" action="/download" class="qr-actions">
-                <input
-                    type="hidden"
-                    name="url"
-                    value="{{ request.form.url }}"
-                >
+                <input type="hidden" name="url" value="{{ form_data.url }}">
+                <input type="hidden" name="fill_color" value="{{ form_data.fill_color }}">
+                <input type="hidden" name="back_color" value="{{ form_data.back_color }}">
+                <input type="hidden" name="use_gradient" value="{{ 'on' if form_data.use_gradient else '' }}">
+                <input type="hidden" name="gradient_direction" value="{{ form_data.gradient_direction }}">
+                {% for i in range(form_data.gradient_colors|length) %}
+                <input type="hidden" name="gradient_color_{{ i }}" value="{{ form_data.gradient_colors[i] }}">
+                {% endfor %}
 
                 <button type="submit" class="btn btn-primary">
                     {{ translations.download }}
@@ -82,6 +143,153 @@
     </div>
 
     <script>
+        function toggleGradientMode() {
+            const useGradient = document.getElementById('use_gradient').checked;
+            document.getElementById('solid-colors').classList.toggle('hidden', useGradient);
+            document.getElementById('gradient-colors').classList.toggle('hidden', !useGradient);
+        }
+
+        function updateGradientStops() {
+            const container = document.getElementById('gradient-stops');
+            const stops = container.querySelectorAll('.gradient-stop');
+            
+            stops.forEach((stop, index) => {
+                stop.dataset.index = index;
+                stop.querySelector('label').textContent = `{{ translations.color_stop }} ${index + 1}`;
+                
+                const colorInput = stop.querySelector('input[type="color"]');
+                const hexInput = stop.querySelector('.color-hex');
+                const removeBtn = stop.querySelector('.remove-stop');
+                
+                colorInput.name = `gradient_color_${index}`;
+                hexInput.name = `gradient_color_${index}_hex`;
+                
+                removeBtn.disabled = stops.length <= 2;
+                removeBtn.style.opacity = stops.length <= 2 ? '0.3' : '1';
+                removeBtn.style.cursor = stops.length <= 2 ? 'not-allowed' : 'pointer';
+            });
+        }
+
+        function addGradientStop() {
+            const container = document.getElementById('gradient-stops');
+            const stops = container.querySelectorAll('.gradient-stop');
+            
+            if (stops.length >= 5) return;
+            
+            const lastStop = stops[stops.length - 1];
+            const lastColor = lastStop.querySelector('input[type="color"]').value;
+            
+            const newStop = document.createElement('div');
+            newStop.className = 'gradient-stop';
+            newStop.draggable = true;
+            newStop.innerHTML = `
+                <span class="drag-handle" aria-label="{{ translations.drag_handle }}">⋮⋮</span>
+                <div class="stop-content">
+                    <label>{{ translations.color_stop }} ${stops.length + 1}</label>
+                    <div class="color-input-wrapper">
+                        <input type="color" name="gradient_color_${stops.length}" value="${lastColor}">
+                        <input type="text" class="color-hex" value="${lastColor}" readonly>
+                    </div>
+                    <button type="button" class="btn btn-icon remove-stop" onclick="removeGradientStop(this)" aria-label="{{ translations.remove }}">−</button>
+                </div>
+            `;
+            
+            container.appendChild(newStop);
+            setupDragAndDrop(newStop);
+            setupColorSync(newStop.querySelector('input[type="color"]'));
+            updateGradientStops();
+        }
+
+        function removeGradientStop(button) {
+            const container = document.getElementById('gradient-stops');
+            const stops = container.querySelectorAll('.gradient-stop');
+            
+            if (stops.length <= 2) return;
+            
+            button.closest('.gradient-stop').remove();
+            updateGradientStops();
+        }
+
+        function setupColorSync(colorInput) {
+            colorInput.addEventListener('input', function() {
+                this.nextElementSibling.value = this.value;
+            });
+        }
+
+        let draggedElement = null;
+
+        function setupDragAndDrop(element) {
+            element.addEventListener('dragstart', handleDragStart);
+            element.addEventListener('dragend', handleDragEnd);
+            element.addEventListener('dragover', handleDragOver);
+            element.addEventListener('drop', handleDrop);
+        }
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.index);
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.gradient-stop').forEach(stop => {
+                stop.classList.remove('drag-over');
+            });
+            draggedElement = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            const container = document.getElementById('gradient-stops');
+            const stops = container.querySelectorAll('.gradient-stop:not(.dragging)');
+            
+            stops.forEach(stop => stop.classList.remove('drag-over'));
+            
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement) {
+                afterElement.classList.add('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            
+            if (!draggedElement) return;
+            
+            const container = document.getElementById('gradient-stops');
+            const afterElement = getDragAfterElement(container, e.clientY);
+            
+            if (afterElement) {
+                container.insertBefore(draggedElement, afterElement);
+            } else {
+                container.appendChild(draggedElement);
+            }
+            
+            updateGradientStops();
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.gradient-stop:not(.dragging)')];
+            
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        document.querySelectorAll('input[type="color"]').forEach(setupColorSync);
+        document.querySelectorAll('.gradient-stop').forEach(setupDragAndDrop);
+
         async function copyToClipboard() {
             const img = document.querySelector('.qr-image img');
             if (!img) return;

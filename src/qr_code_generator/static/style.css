@@ -70,6 +70,8 @@ h1 {
 
 .form-group {
     margin-bottom: 1.25rem;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 label {
@@ -293,5 +295,395 @@ input[type="url"]:focus {
         scroll-behavior: auto !important;
         transition: none !important;
         animation: none !important;
+    }
+}
+
+.color-section {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.color-section legend {
+    padding: 0 0.5rem;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+.color-mode-toggle {
+    margin-bottom: 1rem;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.toggle-label input[type="checkbox"] {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    background: var(--secondary);
+    border-radius: 14px;
+    transition: background-color 0.2s ease;
+}
+
+.toggle-slider::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-slider {
+    background: var(--primary);
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-slider::after {
+    transform: translateX(20px);
+}
+
+.color-options {
+    transition: opacity 0.2s ease, max-height 0.2s ease;
+}
+
+.color-options.hidden {
+    display: none;
+}
+
+.color-picker-group {
+    margin-bottom: 1rem;
+}
+
+.color-picker-group:last-child {
+    margin-bottom: 0;
+}
+
+.color-picker-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.color-input-wrapper {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.color-input-wrapper input[type="color"] {
+    flex: 0 0 60px;
+    height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2px;
+    cursor: pointer;
+    background: none;
+}
+
+.color-input-wrapper input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.color-input-wrapper input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 8px;
+}
+
+.color-input-wrapper .color-hex {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0.8rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+    background: var(--surface-soft);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.75rem;
+    font-family: monospace;
+    text-transform: uppercase;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.color-input-wrapper .color-hex:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.gradient-direction-group {
+    margin-bottom: 1.25rem;
+}
+
+.gradient-direction-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.gradient-direction-group select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+    background: var(--surface-soft);
+    color: var(--text);
+    font: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gradient-direction-group select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.gradient-stops {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-right: 0.5rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.gradient-stop {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.gradient-stop:hover {
+    border-color: #cbd5e1;
+}
+
+.stop-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+}
+
+.gradient-stop label {
+    flex: 0 0 80px;
+    color: #374151;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.gradient-stop .color-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+}
+
+.gradient-stop .color-input-wrapper input[type="color"] {
+    flex: 0 0 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1px;
+    cursor: pointer;
+    background: none;
+}
+
+.gradient-stop .color-input-wrapper input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.gradient-stop .color-input-wrapper input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 4px;
+}
+
+.gradient-stop .color-input-wrapper .color-hex {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    padding: 0 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    outline: none;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.65rem;
+    font-family: monospace;
+    text-transform: uppercase;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gradient-stop .color-input-wrapper .color-hex:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.gradient-stop .remove-stop {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.gradient-stop .remove-stop:hover {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    color: var(--danger-text);
+}
+
+.gradient-stop .remove-stop:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.gradient-stop .remove-stop:disabled:hover {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text-muted);
+}
+
+.add-stop {
+    margin-top: 0.5rem;
+    width: fit-content;
+}
+
+@media (max-width: 600px) {
+    .color-section {
+        padding: 1rem;
+    }
+    
+    .gradient-stop {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .stop-content {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+    
+    .gradient-stop label {
+        flex: none;
+        margin-bottom: 0.5rem;
+    }
+    
+    .color-input-wrapper {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .color-input-wrapper input[type="color"] {
+        flex: none;
+        width: 100%;
+    }
+    
+    .gradient-stop .remove-stop {
+        align-self: flex-end;
+        margin-top: 0.5rem;
+    }
+}
+
+.drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 36px;
+    color: var(--text-muted);
+    cursor: grab;
+    flex-shrink: 0;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.drag-handle:hover {
+    background: var(--secondary);
+    color: var(--text);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.gradient-stop.dragging {
+    opacity: 0.5;
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
+
+.gradient-stop.drag-over {
+    border-top: 3px solid var(--primary);
+    margin-top: -3px;
+}
+
+@media (max-width: 600px) {
+    .drag-handle {
+        width: 100%;
+        height: 32px;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .gradient-stop.drag-over {
+        border-top: none;
+        border-left: 3px solid var(--primary);
+        margin-left: -3px;
     }
 }

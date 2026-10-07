@@ -12,6 +12,9 @@ dependencies = [
     "flask>=3.0",
 ]
 
+[project.scripts]
+qr_code_generator = "qr_code_generator.app:main"
+
 [build-system]
 requires = ["uv_build>=0.12.21,<0.13.0"]
 build-backend = "uv_build"
