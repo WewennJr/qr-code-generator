@@ -123,15 +123,7 @@ def draw_module(draw: ImageDraw.Draw, px: int, py: int, box_size: int, color: Tu
         draw.rectangle([px, py, px + box_size, py + box_size], fill=color)
 
 
-def generate_qr_code(
-    data: str,
-    fill_color: str = "#000000",
-    back_color: str = "#ffffff",
-    gradient_colors: Optional[List[str]] = None,
-    gradient_direction: str = "vertical",
-    logo_data: Optional[bytes] = None,
-    style: str = "square"
-) -> io.BytesIO:
+def generate_qr_code(data: str, fill_color: str = "#000000", back_color: str = "#ffffff", gradient_colors: Optional[List[str]] = None, gradient_direction: str = "vertical", logo_data: Optional[bytes] = None, style: str = "square") -> io.BytesIO:
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -340,4 +332,4 @@ def main():
     app.run(host="127.0.0.1", port=5002)
 
 if __name__ == "__main__":
-    main()    
+    main()
