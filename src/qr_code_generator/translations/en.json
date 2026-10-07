@@ -31,6 +31,10 @@
     "logo_no_preview": "No logo selected",
     "logo_invalid_type": "File must be an image",
     "logo_too_large": "Image must not exceed 2 MB",
+    "style_title": "Style",
+    "style_square": "Squares",
+    "style_rounded": "Rounded",
+    "style_circle": "Circles",
     "errors": {
         "empty_url": "Please enter a URL",
         "invalid_url": "The URL must start with http:// or https://",

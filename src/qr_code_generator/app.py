@@ -107,13 +107,29 @@ def is_finder_pattern(x: int, y: int, size: int, border: int) -> bool:
     return False
 
 
+def draw_module(draw: ImageDraw.Draw, px: int, py: int, box_size: int, color: Tuple[int, int, int], style: str):
+    """Draw a single QR module based on style."""
+    half = box_size // 2
+    center_x = px + half
+    center_y = py + half
+    radius = half - 1
+    
+    if style == "circle":
+        draw.ellipse([px + 1, py + 1, px + box_size - 1, py + box_size - 1], fill=color)
+    elif style == "rounded":
+        draw.rounded_rectangle([px + 1, py + 1, px + box_size - 1, py + box_size - 1], radius=radius // 2, fill=color)
+    else:
+        draw.rectangle([px, py, px + box_size, py + box_size], fill=color)
+
+
 def generate_qr_code(
     data: str,
     fill_color: str = "#000000",
     back_color: str = "#ffffff",
     gradient_colors: Optional[List[str]] = None,
     gradient_direction: str = "vertical",
-    logo_data: Optional[bytes] = None
+    logo_data: Optional[bytes] = None,
+    style: str = "square"
 ) -> io.BytesIO:
     qr = qrcode.QRCode(
         version=1,
@@ -159,14 +175,21 @@ def generate_qr_code(
                         else:
                             color = gradient[max(0, min(gy, module_count - 1))]
                     
-                    draw.rectangle([px, py, px + box_size, py + box_size], fill=color)
+                    draw_module(draw, px, py, box_size, color, style)
     else:
         for y, row in enumerate(matrix):
             for x, cell in enumerate(row):
                 if cell:
                     px = x * box_size
                     py = y * box_size
-                    draw.rectangle([px, py, px + box_size, py + box_size], fill=fill_rgb)
+                    
+                    # Keep finder patterns solid for scannability
+                    if is_finder_pattern(x, y, size, border):
+                        color = fill_rgb
+                    else:
+                        color = fill_rgb
+                    
+                    draw_module(draw, px, py, box_size, color, style)
     
     if logo_data:
         img = embed_logo_in_qr(img, logo_data)
@@ -192,6 +215,7 @@ def index():
         "gradient_direction": "vertical",
         "use_gradient": False,
         "logo_preview": None,
+        "style": "square",
     }
 
     if request.method == "POST":
@@ -200,6 +224,7 @@ def index():
         back_color = request.form.get("back_color", "#ffffff")
         use_gradient = request.form.get("use_gradient") == "on"
         gradient_direction = request.form.get("gradient_direction", "vertical")
+        style = request.form.get("style", "square")
         
         gradient_colors = []
         for i in range(5):
@@ -226,6 +251,7 @@ def index():
             "gradient_direction": gradient_direction,
             "use_gradient": use_gradient,
             "logo_preview": logo_preview,
+            "style": style,
         })
 
         if not url:
@@ -242,9 +268,10 @@ def index():
                         gradient_colors=gradient_colors,
                         gradient_direction=gradient_direction,
                         logo_data=logo_data,
+                        style=style,
                     )
                 else:
-                    buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color, logo_data=logo_data)
+                    buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color, logo_data=logo_data, style=style)
                 qr_code_data = base64.b64encode(buf.getvalue()).decode("utf-8")
             except Exception as e:
                 error = f'{translations["errors"]["generation"]}: {str(e)}'
@@ -266,6 +293,7 @@ def download():
     back_color = request.form.get("back_color", "#ffffff")
     use_gradient = request.form.get("use_gradient") == "on"
     gradient_direction = request.form.get("gradient_direction", "vertical")
+    style = request.form.get("style", "square")
     
     gradient_colors = []
     for i in range(5):
@@ -293,9 +321,10 @@ def download():
                 gradient_colors=gradient_colors,
                 gradient_direction=gradient_direction,
                 logo_data=logo_data,
+                style=style,
             )
         else:
-            buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color, logo_data=logo_data)
+            buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color, logo_data=logo_data, style=style)
     except Exception:
         return "Generation error", 500
 
