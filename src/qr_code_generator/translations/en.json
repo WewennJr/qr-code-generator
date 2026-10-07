@@ -3,6 +3,7 @@
     "subtitle": "Enter a URL to generate your QR code",
     "description": "Easily generate QR codes from your URLs online for free.",
     "url_label": "URL",
+    "url_placeholder": "example.com",
     "generate": "Generate",
     "qr_result": "Your QR Code",
     "qr_alt": "Generated QR Code",

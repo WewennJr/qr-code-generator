@@ -60,7 +60,7 @@ def generate_gradient_colors(colors: List[str], steps: int) -> List[Tuple[int, i
     return gradient[:steps]
 
 
-def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes) -> Image.Image:
+def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes, back_color: str = "#ffffff") -> Image.Image:
     try:
         logo_img = Image.open(io.BytesIO(logo_data))
         
@@ -76,7 +76,8 @@ def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes) -> Image.Image:
         
         padding = 8
         bg_size = max(logo_width, logo_height) + 2 * padding
-        bg_img = Image.new("RGBA", (bg_size, bg_size), (255, 255, 255, 255))
+        bg_color_rgb = hex_to_rgb(back_color)
+        bg_img = Image.new("RGBA", (bg_size, bg_size), (*bg_color_rgb, 255))
         
         bg_x = (bg_size - logo_width) // 2
         bg_y = (bg_size - logo_height) // 2
@@ -192,7 +193,7 @@ def generate_qr_code(
                     draw_module(draw, px, py, box_size, color, style)
     
     if logo_data:
-        img = embed_logo_in_qr(img, logo_data)
+        img = embed_logo_in_qr(img, logo_data, back_color)
     
     buf = io.BytesIO()
     img.save(buf, format="PNG")
