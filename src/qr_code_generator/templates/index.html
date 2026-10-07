@@ -108,11 +108,11 @@
                             {{ translations.logo_import }}
                         </label>
                         
-                        <div class="logo-preview" id="logo-preview">
-                            <img src="" alt="{{ translations.logo_preview }}" hidden>
-                            <span class="logo-preview-placeholder">{{ translations.logo_no_preview }}</span>
-                            <button type="button" class="btn btn-icon logo-remove" onclick="removeLogo()" aria-label="{{ translations.logo_remove }}" hidden>×</button>
+                        <div class="logo-preview-frame" id="logo-preview-frame">
+                            <img src="" alt="{{ translations.logo_preview }}" id="logo-preview-img" hidden>
+                            <span class="logo-preview-placeholder" id="logo-preview-placeholder">{{ translations.logo_no_preview }}</span>
                         </div>
+                        <button type="button" class="btn btn-icon logo-remove" onclick="removeLogo()" aria-label="{{ translations.logo_remove }}" id="logo-remove-btn" hidden>×</button>
                     </div>
                     <p class="logo-hint">{{ translations.logo_hint }}</p>
                 </div>
@@ -314,8 +314,10 @@ document.querySelectorAll('input[type="color"]').forEach(setupColorSync);
         document.querySelectorAll('.gradient-stop').forEach(setupDragAndDrop);
 
         const logoInput = document.getElementById('logo');
-        const logoPreview = document.getElementById('logo-preview');
-        const logoPreviewEmpty = document.getElementById('logo-preview-empty');
+        const logoPreviewFrame = document.getElementById('logo-preview-frame');
+        const logoPreviewImg = document.getElementById('logo-preview-img');
+        const logoPreviewPlaceholder = document.getElementById('logo-preview-placeholder');
+        const logoRemoveBtn = document.getElementById('logo-remove-btn');
 
         function handleLogoSelect(input) {
             const file = input.files[0];
@@ -334,15 +336,11 @@ document.querySelectorAll('input[type="color"]').forEach(setupColorSync);
             
             const reader = new FileReader();
             reader.onload = (e) => {
-                if (logoPreview) {
-                    const img = logoPreview.querySelector('img');
-                    const placeholder = logoPreview.querySelector('.logo-preview-placeholder');
-                    const removeBtn = logoPreview.querySelector('.logo-remove');
-                    
-                    img.src = e.target.result;
-                    img.hidden = false;
-                    placeholder.hidden = true;
-                    removeBtn.hidden = false;
+                if (logoPreviewImg) {
+                    logoPreviewImg.src = e.target.result;
+                    logoPreviewImg.hidden = false;
+                    logoPreviewPlaceholder.hidden = true;
+                    logoRemoveBtn.hidden = false;
                 }
             };
             reader.readAsDataURL(file);
@@ -350,15 +348,11 @@ document.querySelectorAll('input[type="color"]').forEach(setupColorSync);
 
         function removeLogo() {
             if (logoInput) logoInput.value = '';
-            if (logoPreview) {
-                const img = logoPreview.querySelector('img');
-                const placeholder = logoPreview.querySelector('.logo-preview-placeholder');
-                const removeBtn = logoPreview.querySelector('.logo-remove');
-                
-                img.src = '';
-                img.hidden = true;
-                placeholder.hidden = false;
-                removeBtn.hidden = true;
+            if (logoPreviewImg) {
+                logoPreviewImg.src = '';
+                logoPreviewImg.hidden = true;
+                logoPreviewPlaceholder.hidden = false;
+                logoRemoveBtn.hidden = true;
             }
         }
 

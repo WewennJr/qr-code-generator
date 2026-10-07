@@ -74,7 +74,7 @@ def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes) -> Image.Image:
         
         logo_width, logo_height = logo_img.size
         
-        padding = 12
+        padding = 8
         bg_size = max(logo_width, logo_height) + 2 * padding
         bg_img = Image.new("RGBA", (bg_size, bg_size), (255, 255, 255, 255))
         
