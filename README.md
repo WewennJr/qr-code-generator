@@ -49,6 +49,25 @@ The app will be available at `http://127.0.0.1:5002`
 - Flask 3.x
 - qrcode[pil] 8.x
 
+## Usage
+
+1. Open `http://127.0.0.1:5002` in your browser
+2. Enter a valid URL in the input field
+3. Click **Generate** to create your QR code
+4. Download the QR code as a PNG image or copy it to your clipboard
+
+## Technology Stack
+
+- **Backend**: Flask 3.x
+- **QR Code Generation**: qrcode[pil] 8.x
+- **Frontend**: HTML, CSS, JavaScript (no frameworks)
+
+## Configuration
+
+The application runs on `127.0.0.1:5002` by default.
+
+To change the host or port, modify the Flask configuration in `src/qr_code_generator/app.py`.
+
 ## License
 
 This project is licensed under the terms of the [LICENSE](LICENSE) file.
