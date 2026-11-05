@@ -55,5 +55,6 @@
         "invalid_eye_color": "The custom eye color is invalid"
     },
     "style_title": "Style",
-    "theme_toggle": "Toggle dark mode"
+    "theme_toggle": "Toggle dark mode",
+    "logo_tint": "Logo in the QR code color"
 }

@@ -55,5 +55,6 @@
         "invalid_eye_color": "Il colore degli occhi personalizzato non è valido"
     },
     "style_title": "Stile",
-    "theme_toggle": "Attiva/disattiva modalità scura"
+    "theme_toggle": "Attiva/disattiva modalità scura",
+    "logo_tint": "Logo nel colore del codice QR"
 }

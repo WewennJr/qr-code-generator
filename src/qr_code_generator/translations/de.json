@@ -55,5 +55,6 @@
         "invalid_eye_color": "Die eigene Augenfarbe ist ungültig"
     },
     "style_title": "Stil",
-    "theme_toggle": "Dunkelmodus umschalten"
+    "theme_toggle": "Dunkelmodus umschalten",
+    "logo_tint": "Logo in der QR-Code-Farbe"
 }

@@ -55,5 +55,6 @@
         "invalid_eye_color": "De aangepaste oogkleur is ongeldig"
     },
     "style_title": "Stijl",
-    "theme_toggle": "Donkere modus wisselen"
+    "theme_toggle": "Donkere modus wisselen",
+    "logo_tint": "Logo in de kleur van de QR-code"
 }

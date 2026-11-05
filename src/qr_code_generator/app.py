@@ -48,6 +48,19 @@ BRANDS = {
     "whatsapp": {"name": "WhatsApp", "color": "#25D366"},
     "facebook": {"name": "Facebook", "color": "#1877F2"},
     "tiktok": {"name": "TikTok", "color": "#0f0f0f"},
+    "google": {"name": "Google", "color": "#4285F4"},
+    "apple": {"name": "Apple", "color": "#000000"},
+    "amazon": {"name": "Amazon", "color": "#FF9900"},
+    "microsoft": {"name": "Microsoft", "color": "#5E5E5E"},
+    "discord": {"name": "Discord", "color": "#5865F2"},
+    "spotify": {"name": "Spotify", "color": "#1DB954"},
+    "telegram": {"name": "Telegram", "color": "#26A5E4"},
+    "twitch": {"name": "Twitch", "color": "#9146FF"},
+    "reddit": {"name": "Reddit", "color": "#FF4500"},
+    "pinterest": {"name": "Pinterest", "color": "#BD081C"},
+    "snapchat": {"name": "Snapchat", "color": "#FFFC00"},
+    "netflix": {"name": "Netflix", "color": "#E50914"},
+    "figma": {"name": "Figma", "color": "#F24E1E"},
 }
 
 _brand_svgs_cache: Optional[dict] = None
@@ -187,6 +200,18 @@ def sanitize_logo_image(logo_bytes: bytes) -> Optional[bytes]:
             return clean.getvalue()
     except Exception:
         return None
+
+
+def tint_logo_png(logo_bytes: bytes, rgb: Tuple[int, int, int]) -> bytes:
+    """Recolor every opaque pixel of the logo with a solid color (keeps alpha)."""
+    img = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
+    alpha = img.getchannel("A")
+    solid = Image.new("RGBA", img.size, (*rgb, 255))
+    solid.putalpha(alpha)
+    out = io.BytesIO()
+    solid.save(out, format="PNG")
+    out.seek(0)
+    return out.getvalue()
 
 
 def get_requested_logo() -> Optional[bytes]:
@@ -369,6 +394,7 @@ def generate_qr_code(
     style: str = "square",
     eye_style: str = "square",
     eye_color: Optional[str] = None,
+    logo_tint: bool = False,
 ) -> io.BytesIO:
     qr = qrcode.QRCode(
         version=1,
@@ -425,6 +451,11 @@ def generate_qr_code(
         draw_finder_eye(draw, fx, fy, box_size, eye_rgb or color_at(fx, fy), eye_style)
 
     if logo_data:
+        if logo_tint:
+            # Recolor the logo with the QR color at its center (gradient-aware)
+            center_gx = max(0, (size - 2 * border) // 2)
+            tint_rgb = color_at(center_gx + border, center_gx + border)
+            logo_data = tint_logo_png(logo_data, tint_rgb)
         img = embed_logo_in_qr(img, logo_data, back_color, style)
 
     buf = io.BytesIO()
@@ -520,6 +551,7 @@ def parse_qr_settings(translations: dict) -> Tuple[dict, Optional[bytes], Option
         "style": style,
         "eye_style": eye_style,
         "eye_color": eye_color,
+        "logo_tint": request.form.get("logo_tint") == "on",
     }
     return settings, logo_bytes, (errors[0] if errors else None)
 
@@ -536,6 +568,7 @@ def build_qr_image(settings: dict, logo_bytes: Optional[bytes]) -> io.BytesIO:
         style=settings["style"],
         eye_style=settings["eye_style"],
         eye_color=settings["eye_color"],
+        logo_tint=settings["logo_tint"],
     )
 
 
@@ -551,6 +584,7 @@ def build_form_data(settings: dict, logo_b64: Optional[str]) -> dict:
         "eye_style": settings["eye_style"],
         "use_eye_color": settings["eye_color"] is not None,
         "eye_color": settings["eye_color"] or "#2563eb",
+        "logo_tint": settings.get("logo_tint", False),
         "logo_preview": logo_b64,
     }
 

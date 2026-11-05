@@ -55,5 +55,6 @@
         "invalid_eye_color": "Własny kolor oczu jest nieprawidłowy"
     },
     "style_title": "Styl",
-    "theme_toggle": "Przełącz tryb ciemny"
+    "theme_toggle": "Przełącz tryb ciemny",
+    "logo_tint": "Logo w kolorze kodu QR"
 }

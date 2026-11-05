@@ -167,6 +167,14 @@
                     </div>
                     <p class="brand-label">{{ translations.brands_label }}</p>
 
+                    <div class="color-mode-toggle logo-tint-toggle">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="logo_tint" name="logo_tint" {% if form_data.logo_tint %}checked{% endif %}>
+                            <span class="toggle-slider"></span>
+                            {{ translations.logo_tint }}
+                        </label>
+                    </div>
+
                     <div class="logo-upload">
                         <div class="logo-input-group">
                             <label for="logo" class="btn btn-secondary logo-import-btn">
@@ -288,6 +296,7 @@
                 {% if form_data.logo_preview %}
                 <input type="hidden" name="logo_data" value="data:image/png;base64,{{ form_data.logo_preview }}">
                 {% endif %}
+                <input type="hidden" name="logo_tint" value="{{ 'on' if form_data.logo_tint else '' }}">
 
                 <button type="submit" class="btn btn-primary">
                     {{ translations.download }}
