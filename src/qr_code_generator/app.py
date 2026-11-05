@@ -1,129 +1,347 @@
 import io
 import base64
 import json
+import re
 from pathlib import Path
 from typing import List, Optional, Tuple
+from urllib.parse import urlsplit
 
 from flask import Flask, render_template, request, send_file
+from markupsafe import Markup
 import qrcode
 from PIL import Image, ImageDraw
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024  # 4 MB max request body
+
+# Protect against decompression bombs
+Image.MAX_IMAGE_PIXELS = 20_000_000
 
 TRANSLATIONS_DIR = Path(__file__).parent / "translations"
+BRANDS_DIR = Path(__file__).parent / "static" / "brands"
 
 MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB
+MAX_LOGO_DIMENSION_PX = 1000  # Downscale oversized logos before embedding
+MAX_URL_LENGTH = 2048
+MAX_GRADIENT_STOPS = 5
 LOGO_MAX_DIMENSION = 0.22  # Logo max 22% of QR code size for scannability
+LOGO_PADDING = 10
+LOGO_PLATE_RADIUS = 0.22  # Relative to plate size
+
+ALLOWED_MODULE_STYLES = {"square", "rounded", "dots", "diamond"}
+ALLOWED_EYE_STYLES = {"square", "rounded", "circle"}
+ALLOWED_GRADIENT_DIRECTIONS = {"vertical", "horizontal", "diagonal"}
+ALLOWED_LOGO_FORMATS = {"PNG", "JPEG", "WEBP"}
+
+HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
+APP_LANGUAGES = ["fr", "en", "es", "de", "it", "pt", "nl", "pl"]
+
+BRANDS = {
+    "github": {"name": "GitHub", "color": "#181717"},
+    "x": {"name": "X", "color": "#000000"},
+    "instagram": {"name": "Instagram", "color": "#E4405F"},
+    "linkedin": {"name": "LinkedIn", "color": "#0A66C2"},
+    "youtube": {"name": "YouTube", "color": "#FF0000"},
+    "whatsapp": {"name": "WhatsApp", "color": "#25D366"},
+    "facebook": {"name": "Facebook", "color": "#1877F2"},
+    "tiktok": {"name": "TikTok", "color": "#0f0f0f"},
+}
+
+_brand_svgs_cache: Optional[dict] = None
 
 
 def load_translations(language: str) -> dict:
+    if language not in APP_LANGUAGES:
+        language = "en"
     translation_file = TRANSLATIONS_DIR / f"{language}.json"
-
-    if not translation_file.exists():
-        translation_file = TRANSLATIONS_DIR / "en.json"
-
     with translation_file.open("r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def get_language() -> str:
-    return request.accept_languages.best_match(["fr", "en", "es", "de", "it", "pt", "nl", "pl"]) or "en"
+    return request.accept_languages.best_match(APP_LANGUAGES) or "en"
+
+
+def get_brands() -> dict:
+    """Load bundled SVG brand icons (Id -> name, color, inline-safe svg text)."""
+    global _brand_svgs_cache
+    if _brand_svgs_cache is None:
+        _brand_svgs_cache = {}
+        for brand_id, meta in BRANDS.items():
+            svg_file = BRANDS_DIR / f"{brand_id}.svg"
+            try:
+                svg_text = svg_file.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            _brand_svgs_cache[brand_id] = {
+                "name": meta["name"],
+                "color": meta["color"],
+                "svg": Markup(svg_text),
+            }
+    return _brand_svgs_cache
+
+
+# ---------------------------------------------------------------------------
+# Colors
+# ---------------------------------------------------------------------------
+
+
+def is_valid_hex_color(value: str) -> bool:
+    return bool(value) and bool(HEX_COLOR_RE.match(value))
+
+
+def normalize_hex_value(value: str) -> str:
+    value = value.lstrip("#")
+    if len(value) == 3:
+        value = "".join(c * 2 for c in value)
+    return f"#{value.upper()}"
+
+
+def parse_hex_color(value: str, default: str) -> str:
+    if value and is_valid_hex_color(value):
+        return normalize_hex_value(value)
+    return default
 
 
 def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    hex_color = normalize_hex_value(hex_color).lstrip("#")
+    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
 
-def interpolate_color(color1: Tuple[int, int, int], color2: Tuple[int, int, int], factor: float) -> Tuple[int, int, int]:
+def interpolate_color(
+    color1: Tuple[int, int, int], color2: Tuple[int, int, int], factor: float
+) -> Tuple[int, int, int]:
     return tuple(int(c1 + (c2 - c1) * factor) for c1, c2 in zip(color1, color2))
 
 
 def generate_gradient_colors(colors: List[str], steps: int) -> List[Tuple[int, int, int]]:
     if len(colors) < 2:
         return [hex_to_rgb(colors[0])] * steps
-    
+
     rgb_colors = [hex_to_rgb(c) for c in colors]
     segment_steps = steps // (len(rgb_colors) - 1)
     remainder = steps % (len(rgb_colors) - 1)
-    
+
     gradient = []
     for i in range(len(rgb_colors) - 1):
         current_steps = segment_steps + (1 if i < remainder else 0)
         for step in range(current_steps):
             factor = step / max(current_steps - 1, 1)
             gradient.append(interpolate_color(rgb_colors[i], rgb_colors[i + 1], factor))
-    
+
     while len(gradient) < steps:
         gradient.append(rgb_colors[-1])
-    
+
     return gradient[:steps]
+
+
+# ---------------------------------------------------------------------------
+# Logo handling
+# ---------------------------------------------------------------------------
+
+
+def decode_base64_image(value: str) -> Optional[bytes]:
+    """Decode a `data:` URL (or raw base64) into raw image bytes."""
+    if not value:
+        return None
+    if value.startswith("data:") and "," in value:
+        header, value = value.split(",", 1)
+        header = header.lower()
+        if header not in (
+            "data:image/png;base64",
+            "data:image/jpeg;base64",
+            "data:image/webp;base64",
+        ):
+            return None
+    try:
+        return base64.b64decode(value, validate=True)
+    except (ValueError, TypeError):
+        return None
+
+
+def sanitize_logo_image(logo_bytes: bytes) -> Optional[bytes]:
+    """Validate and re-encode a user-provided logo to a clean PNG.
+
+    Rejects non-raster formats (incl. SVG), strips metadata, and downscale
+    oversized images. Returns None if the image is invalid.
+    """
+    try:
+        with Image.open(io.BytesIO(logo_bytes)) as img:
+            img_format = img.format
+            if img_format not in ALLOWED_LOGO_FORMATS:
+                return None
+            img.load()
+
+        with Image.open(io.BytesIO(logo_bytes)) as img:
+            if img.mode != "RGBA":
+                img = img.convert("RGBA")
+            if max(img.size) > MAX_LOGO_DIMENSION_PX:
+                img.thumbnail((MAX_LOGO_DIMENSION_PX, MAX_LOGO_DIMENSION_PX), Image.Resampling.LANCZOS)
+
+            clean = io.BytesIO()
+            img.save(clean, format="PNG")
+            clean.seek(0)
+            return clean.getvalue()
+    except Exception:
+        return None
+
+
+def get_requested_logo() -> Optional[bytes]:
+    """Get the logo bytes from either a file upload or a base64 data URL."""
+    logo_file = request.files.get("logo_data")
+    if logo_file and logo_file.filename:
+        logo_bytes = logo_file.read()
+        if not logo_bytes or len(logo_bytes) > MAX_LOGO_SIZE:
+            return None
+        return logo_bytes
+
+    logo_b64 = request.form.get("logo_data", "")
+    if logo_b64:
+        logo_bytes = decode_base64_image(logo_b64)
+        if not logo_bytes or len(logo_bytes) > MAX_LOGO_SIZE:
+            return None
+        return logo_bytes
+
+    return None
 
 
 def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes, back_color: str = "#ffffff") -> Image.Image:
     try:
         logo_img = Image.open(io.BytesIO(logo_data))
-        
         if logo_img.mode != "RGBA":
             logo_img = logo_img.convert("RGBA")
-        
+
         qr_width, qr_height = qr_img.size
-        max_logo_size = int(min(qr_width, qr_height) * LOGO_MAX_DIMENSION)
-        
-        logo_img.thumbnail((max_logo_size, max_logo_size), Image.Resampling.LANCZOS)
-        
+        max_plate_size = int(min(qr_width, qr_height) * LOGO_MAX_DIMENSION)
+
+        # Keep aspect ratio, fit inside plate with padding
+        logo_img.thumbnail(
+            (max_plate_size - 2 * LOGO_PADDING, max_plate_size - 2 * LOGO_PADDING),
+            Image.Resampling.LANCZOS,
+        )
+
         logo_width, logo_height = logo_img.size
-        
-        padding = 8
-        bg_size = max(logo_width, logo_height) + 2 * padding
-        bg_color_rgb = hex_to_rgb(back_color)
-        bg_img = Image.new("RGBA", (bg_size, bg_size), (*bg_color_rgb, 255))
-        
-        bg_x = (bg_size - logo_width) // 2
-        bg_y = (bg_size - logo_height) // 2
-        bg_img.paste(logo_img, (bg_x, bg_y), logo_img)
-        
-        qr_x = (qr_width - bg_size) // 2
-        qr_y = (qr_height - bg_size) // 2
-        
+        plate_size = max_plate_size
+
+        plate_x = (qr_width - plate_size) // 2
+        plate_y = (qr_height - plate_size) // 2
+
+        # Paint a clean rounded plate, fully covering modules underneath
         qr_img = qr_img.convert("RGBA")
-        qr_img.paste(bg_img, (qr_x, qr_y), bg_img)
-        
+        plate_draw = ImageDraw.Draw(qr_img)
+        plate_draw.rounded_rectangle(
+            [plate_x, plate_y, plate_x + plate_size, plate_y + plate_size],
+            radius=int(plate_size * LOGO_PLATE_RADIUS),
+            fill=(*hex_to_rgb(back_color), 255),
+        )
+
+        # Center logo on the plate
+        paste_x = plate_x + (plate_size - logo_width) // 2
+        paste_y = plate_y + (plate_size - logo_height) // 2
+        qr_img.paste(logo_img, (paste_x, paste_y), logo_img)
+
         return qr_img.convert("RGB")
     except Exception:
         return qr_img
 
 
+# ---------------------------------------------------------------------------
+# QR drawing
+# ---------------------------------------------------------------------------
+
+
+def finder_positions(size: int, border: int):
+    bs = border
+    te = size - border  # top/right edge in module coords
+    return [
+        (bs, bs),  # top-left
+        (te - 7, bs),  # top-right
+        (bs, te - 7),  # bottom-left
+    ]
+
+
 def is_finder_pattern(x: int, y: int, size: int, border: int) -> bool:
     """Check if coordinates are within finder pattern areas (7x7 modules at 3 corners)."""
-    # Top-left finder
-    if border <= x < border + 7 and border <= y < border + 7:
-        return True
-    # Top-right finder
-    if border <= x < border + 7 and size - border - 7 <= y < size - border:
-        return True
-    # Bottom-left finder
-    if size - border - 7 <= x < size - border and border <= y < border + 7:
-        return True
+    for fx, fy in finder_positions(size, border):
+        if fx <= x < fx + 7 and fy <= y < fy + 7:
+            return True
     return False
 
 
-def draw_module(draw: ImageDraw.Draw, px: int, py: int, box_size: int, color: Tuple[int, int, int], style: str):
+def draw_module(
+    draw: ImageDraw.Draw,
+    px: int,
+    py: int,
+    box_size: int,
+    color: Tuple[int, int, int],
+    style: str,
+):
     """Draw a single QR module based on style."""
-    half = box_size // 2
-    center_x = px + half
-    center_y = py + half
-    radius = half - 1
-    
-    if style == "circle":
-        draw.ellipse([px + 1, py + 1, px + box_size - 1, py + box_size - 1], fill=color)
+    inset = max(1, box_size // 8)
+    x0, y0 = px + inset, py + inset
+    x1, y1 = px + box_size - inset, py + box_size - inset
+    half_cx, half_cy = px + box_size // 2, py + box_size // 2
+
+    if style == "dots":
+        draw.ellipse([x0, y0, x1, y1], fill=color)
     elif style == "rounded":
-        draw.rounded_rectangle([px + 1, py + 1, px + box_size - 1, py + box_size - 1], radius=radius // 2, fill=color)
-    else:
+        draw.rounded_rectangle([x0, y0, x1, y1], radius=(box_size - 2 * inset) // 2, fill=color)
+    elif style == "diamond":
+        draw.polygon(
+            [(px + box_size // 2, y0), (x1, half_cy), (px + box_size // 2, y1), (x0, half_cy)],
+            fill=color,
+        )
+    else:  # square
         draw.rectangle([px, py, px + box_size, py + box_size], fill=color)
 
 
-def generate_qr_code(data: str, fill_color: str = "#000000", back_color: str = "#ffffff", gradient_colors: Optional[List[str]] = None, gradient_direction: str = "vertical", logo_data: Optional[bytes] = None, style: str = "square") -> io.BytesIO:
+def draw_finder_eye(
+    draw: ImageDraw.Draw,
+    fx: int,
+    fy: int,
+    box_size: int,
+    color: Tuple[int, int, int],
+    eye_style: str,
+):
+    """Draw a finder pattern ('eye') as a coherent shape instead of loose modules."""
+    x0 = fx * box_size
+    y0 = fy * box_size
+    x1 = x0 + 7 * box_size
+    y1 = y0 + 7 * box_size
+
+    if eye_style == "circle":
+        draw.ellipse([x0, y0, x1 - 1, y1 - 1], outline=color, width=box_size)
+        dot = 3 * box_size
+        cx, cy = x0 + 2 * box_size, y0 + 2 * box_size
+        draw.ellipse([cx, cy, cx + dot - 1, cy + dot - 1], fill=color)
+    elif eye_style == "rounded":
+        draw.rounded_rectangle(
+            [x0, y0, x1 - 1, y1 - 1], radius=2 * box_size, outline=color, width=box_size
+        )
+        dot = 3 * box_size
+        cx, cy = x0 + 2 * box_size, y0 + 2 * box_size
+        draw.rounded_rectangle(
+            [cx, cy, cx + dot - 1, cy + dot - 1], radius=box_size // 2, fill=color
+        )
+    else:  # square
+        draw.rectangle([x0, y0, x1 - 1, y1 - 1], outline=color, width=box_size)
+        dot = 3 * box_size
+        cx, cy = x0 + 2 * box_size, y0 + 2 * box_size
+        draw.rectangle([cx, cy, cx + dot - 1, cy + dot - 1], fill=color)
+
+
+def generate_qr_code(
+    data: str,
+    fill_color: str = "#000000",
+    back_color: str = "#ffffff",
+    gradient_colors: Optional[List[str]] = None,
+    gradient_direction: str = "vertical",
+    logo_data: Optional[bytes] = None,
+    style: str = "square",
+    eye_style: str = "square",
+    eye_color: Optional[str] = None,
+) -> io.BytesIO:
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -132,65 +350,199 @@ def generate_qr_code(data: str, fill_color: str = "#000000", back_color: str = "
     )
     qr.add_data(data)
     qr.make(fit=True)
-    
+
     matrix = qr.get_matrix()
     size = len(matrix)
     box_size = 10
     border = 4
     img_size = size * box_size
-    
+
     img = Image.new("RGB", (img_size, img_size), hex_to_rgb(back_color))
     draw = ImageDraw.Draw(img)
-    
+
     module_count = size - 2 * border
     fill_rgb = hex_to_rgb(fill_color)
-    
-    if gradient_colors and len(gradient_colors) >= 2:
-        gradient = generate_gradient_colors(gradient_colors, module_count)
-        
-        for y, row in enumerate(matrix):
-            for x, cell in enumerate(row):
-                if cell:
-                    px = x * box_size
-                    py = y * box_size
-                    
-                    # Keep finder patterns solid for scannability
-                    if is_finder_pattern(x, y, size, border):
-                        color = fill_rgb
-                    else:
-                        gx = x - border
-                        gy = y - border
-                        
-                        if gradient_direction == "horizontal":
-                            color = gradient[max(0, min(gx, module_count - 1))]
-                        elif gradient_direction == "diagonal":
-                            color = gradient[max(0, min(gx + gy, module_count - 1))]
-                        else:
-                            color = gradient[max(0, min(gy, module_count - 1))]
-                    
-                    draw_module(draw, px, py, box_size, color, style)
-    else:
-        for y, row in enumerate(matrix):
-            for x, cell in enumerate(row):
-                if cell:
-                    px = x * box_size
-                    py = y * box_size
-                    
-                    # Keep finder patterns solid for scannability
-                    if is_finder_pattern(x, y, size, border):
-                        color = fill_rgb
-                    else:
-                        color = fill_rgb
-                    
-                    draw_module(draw, px, py, box_size, color, style)
-    
+    eye_rgb = hex_to_rgb(eye_color) if eye_color else fill_rgb
+    use_gradient = bool(gradient_colors) and len(gradient_colors) >= 2
+    gradient = generate_gradient_colors(gradient_colors, module_count) if use_gradient else None
+
+    for y, row in enumerate(matrix):
+        for x, cell in enumerate(row):
+            if not cell or is_finder_pattern(x, y, size, border):
+                continue
+
+            px = x * box_size
+            py = y * box_size
+
+            if gradient:
+                gx = x - border
+                gy = y - border
+                if gradient_direction == "horizontal":
+                    color = gradient[max(0, min(gx, module_count - 1))]
+                elif gradient_direction == "diagonal":
+                    color = gradient[max(0, min(gx + gy, module_count - 1))]
+                else:
+                    color = gradient[max(0, min(gy, module_count - 1))]
+            else:
+                color = fill_rgb
+
+            draw_module(draw, px, py, box_size, color, style)
+
+    for fx, fy in finder_positions(size, border):
+        draw_finder_eye(draw, fx, fy, box_size, eye_rgb, eye_style)
+
     if logo_data:
         img = embed_logo_in_qr(img, logo_data, back_color)
-    
+
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
     return buf
+
+
+# ---------------------------------------------------------------------------
+# Form parsing
+# ---------------------------------------------------------------------------
+
+
+def validate_url(url: str, translations: dict) -> Tuple[Optional[str], Optional[str]]:
+    """Validate and canonicalize the URL. Returns (url, error_language_key)."""
+    if not url:
+        return None, "errors.empty_url"
+    if len(url) > MAX_URL_LENGTH:
+        return None, "errors.url_too_long"
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None, "errors.invalid_url"
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return None, "errors.invalid_url"
+    return url, None
+
+
+def get_error_text(translations: dict, dotted_key: str) -> str:
+    section, key = dotted_key.split(".", 1)
+    return translations.get(section, {}).get(key, "Error")
+
+
+def parse_qr_settings(translations: dict) -> Tuple[dict, Optional[bytes], Optional[str]]:
+    """Parse and validate shared QR settings from the current request.
+
+    Returns (settings, logo_bytes, error_message).
+    """
+    errors = []
+
+    url = request.form.get("url", "").strip()
+    url, url_error = validate_url(url, translations)
+    if url_error:
+        errors.append(get_error_text(translations, url_error))
+
+    fill_color = parse_hex_color(request.form.get("fill_color"), "#000000")
+    back_color = parse_hex_color(request.form.get("back_color"), "#ffffff")
+
+    use_gradient = request.form.get("use_gradient") == "on"
+    gradient_direction = request.form.get("gradient_direction", "vertical")
+    if gradient_direction not in ALLOWED_GRADIENT_DIRECTIONS:
+        gradient_direction = "vertical"
+
+    gradient_colors = []
+    for i in range(MAX_GRADIENT_STOPS):
+        color = request.form.get(f"gradient_color_{i}")
+        if color and is_valid_hex_color(color):
+            gradient_colors.append(normalize_hex_value(color))
+        # Unknown/invalid values are silently dropped
+
+    style = request.form.get("style", "square")
+    if style not in ALLOWED_MODULE_STYLES:
+        style = "square"
+
+    eye_style = request.form.get("eye_style", "square")
+    if eye_style not in ALLOWED_EYE_STYLES:
+        eye_style = "square"
+
+    eye_color_input = request.form.get("eye_color", "")
+    use_eye_color = request.form.get("use_eye_color") == "on"
+    eye_color = None
+    if use_eye_color and is_valid_hex_color(eye_color_input):
+        eye_color = normalize_hex_value(eye_color_input)
+    elif use_eye_color:
+        errors.append(get_error_text(translations, "errors.invalid_eye_color"))
+
+    logo_bytes = get_requested_logo()
+    if request.files.get("logo_data") or request.form.get("logo_data"):
+        if logo_bytes is None:
+            errors.append(get_error_text(translations, "errors.logo_invalid"))
+        else:
+            logo_bytes = sanitize_logo_image(logo_bytes)
+            if logo_bytes is None:
+                errors.append(get_error_text(translations, "errors.logo_invalid"))
+
+    settings = {
+        "url": url,
+        "fill_color": fill_color,
+        "back_color": back_color,
+        "use_gradient": use_gradient,
+        "gradient_direction": gradient_direction,
+        "gradient_colors": gradient_colors,
+        "style": style,
+        "eye_style": eye_style,
+        "eye_color": eye_color,
+    }
+    return settings, logo_bytes, (errors[0] if errors else None)
+
+
+def build_qr_image(settings: dict, logo_bytes: Optional[bytes]) -> io.BytesIO:
+    gradient = settings["gradient_colors"] if settings["use_gradient"] and len(settings["gradient_colors"]) >= 2 else None
+    return generate_qr_code(
+        settings["url"],
+        fill_color=settings["fill_color"],
+        back_color=settings["back_color"],
+        gradient_colors=gradient,
+        gradient_direction=settings["gradient_direction"],
+        logo_data=logo_bytes,
+        style=settings["style"],
+        eye_style=settings["eye_style"],
+        eye_color=settings["eye_color"],
+    )
+
+
+def build_form_data(settings: dict, logo_b64: Optional[str]) -> dict:
+    return {
+        "url": settings["url"] or "",
+        "fill_color": settings["fill_color"],
+        "back_color": settings["back_color"],
+        "gradient_colors": settings["gradient_colors"] or ["#000000"],
+        "gradient_direction": settings["gradient_direction"],
+        "use_gradient": settings["use_gradient"],
+        "style": settings["style"],
+        "eye_style": settings["eye_style"],
+        "use_eye_color": settings["eye_color"] is not None,
+        "eye_color": settings["eye_color"] or "#2563eb",
+        "logo_preview": logo_b64,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@app.after_request
+def set_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'"
+    )
+    return response
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -200,74 +552,35 @@ def index():
 
     qr_code_data = None
     error = None
-    form_data = {
-        "url": "",
-        "fill_color": "#000000",
-        "back_color": "#ffffff",
-        "gradient_colors": ["#000000"],
-        "gradient_direction": "vertical",
-        "use_gradient": False,
-        "logo_preview": None,
-        "style": "square",
-    }
+    form_data = build_form_data(
+        {
+            "url": "",
+            "fill_color": "#000000",
+            "back_color": "#ffffff",
+            "use_gradient": False,
+            "gradient_direction": "vertical",
+            "gradient_colors": ["#000000"],
+            "style": "square",
+            "eye_style": "square",
+            "use_eye_color": False,
+            "eye_color": "#2563eb",
+        },
+        None,
+    )
 
     if request.method == "POST":
-        url = request.form.get("url", "").strip()
-        fill_color = request.form.get("fill_color", "#000000")
-        back_color = request.form.get("back_color", "#ffffff")
-        use_gradient = request.form.get("use_gradient") == "on"
-        gradient_direction = request.form.get("gradient_direction", "vertical")
-        style = request.form.get("style", "square")
-        
-        gradient_colors = []
-        for i in range(5):
-            color = request.form.get(f"gradient_color_{i}")
-            if color:
-                gradient_colors.append(color)
+        settings, logo_bytes, error = parse_qr_settings(translations)
 
-        logo_file = request.files.get("logo")
-        logo_data = None
-        logo_preview = None
-        
-        if logo_file and logo_file.filename:
-            logo_data = logo_file.read()
-            if len(logo_data) > MAX_LOGO_SIZE:
-                error = translations["errors"]["logo_too_large"]
-            else:
-                logo_preview = base64.b64encode(logo_data).decode("utf-8")
-
-        form_data.update({
-            "url": url,
-            "fill_color": fill_color,
-            "back_color": back_color,
-            "gradient_colors": gradient_colors if gradient_colors else ["#000000"],
-            "gradient_direction": gradient_direction,
-            "use_gradient": use_gradient,
-            "logo_preview": logo_preview,
-            "style": style,
-        })
-
-        if not url:
-            error = translations["errors"]["empty_url"]
-        elif not (url.startswith("http://") or url.startswith("https://")):
-            error = translations["errors"]["invalid_url"]
-        elif not error:
+        if not error and settings["url"]:
             try:
-                if use_gradient and len(gradient_colors) >= 2:
-                    buf = generate_qr_code(
-                        url,
-                        fill_color=fill_color,
-                        back_color=back_color,
-                        gradient_colors=gradient_colors,
-                        gradient_direction=gradient_direction,
-                        logo_data=logo_data,
-                        style=style,
-                    )
-                else:
-                    buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color, logo_data=logo_data, style=style)
+                buf = build_qr_image(settings, logo_bytes)
                 qr_code_data = base64.b64encode(buf.getvalue()).decode("utf-8")
-            except Exception as e:
-                error = f'{translations["errors"]["generation"]}: {str(e)}'
+                if logo_bytes:
+                    form_data["logo_preview"] = base64.b64encode(logo_bytes).decode("utf-8")
+            except Exception:
+                error = translations["errors"]["generation"]
+
+        form_data = build_form_data({**settings, "use_eye_color": settings["eye_color"] is not None}, form_data.get("logo_preview"))
 
     return render_template(
         "index.html",
@@ -276,50 +589,23 @@ def index():
         translations=translations,
         language=language,
         form_data=form_data,
+        brands=get_brands(),
     )
 
 
 @app.route("/download", methods=["POST"])
 def download():
-    url = request.form.get("url", "").strip()
-    fill_color = request.form.get("fill_color", "#000000")
-    back_color = request.form.get("back_color", "#ffffff")
-    use_gradient = request.form.get("use_gradient") == "on"
-    gradient_direction = request.form.get("gradient_direction", "vertical")
-    style = request.form.get("style", "square")
-    
-    gradient_colors = []
-    for i in range(5):
-        color = request.form.get(f"gradient_color_{i}")
-        if color:
-            gradient_colors.append(color)
+    language = get_language()
+    translations = load_translations(language)
 
-    logo_file = request.files.get("logo")
-    logo_data = None
-    
-    if logo_file and logo_file.filename:
-        logo_data = logo_file.read()
-        if len(logo_data) > MAX_LOGO_SIZE:
-            return "Logo too large (max 2MB)", 400
-
-    if not url or not (url.startswith("http://") or url.startswith("https://")):
-        return "Invalid URL", 400
+    settings, logo_bytes, error = parse_qr_settings(translations)
+    if error:
+        return error, 400
 
     try:
-        if use_gradient and len(gradient_colors) >= 2:
-            buf = generate_qr_code(
-                url,
-                fill_color=fill_color,
-                back_color=back_color,
-                gradient_colors=gradient_colors,
-                gradient_direction=gradient_direction,
-                logo_data=logo_data,
-                style=style,
-            )
-        else:
-            buf = generate_qr_code(url, fill_color=fill_color, back_color=back_color, logo_data=logo_data, style=style)
+        buf = build_qr_image(settings, logo_bytes)
     except Exception:
-        return "Generation error", 500
+        return translations["errors"]["generation"], 500
 
     return send_file(
         buf,
@@ -328,8 +614,10 @@ def download():
         download_name="qrcode.png",
     )
 
+
 def main():
     app.run(host="127.0.0.1", port=5002)
+
 
 if __name__ == "__main__":
     main()

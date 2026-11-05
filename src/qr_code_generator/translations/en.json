@@ -25,14 +25,23 @@
     "remove": "Remove",
     "drag_handle": "Drag to reorder",
     "logo_title": "Logo",
-    "logo_import": "Import",
+    "style_dots": "Dots",
+    "style_diamond": "Diamonds",
+    "eye_title": "Finder eyes",
+    "eye_square": "Squares",
+    "eye_rounded": "Rounded",
+    "eye_circle": "Circles",
+    "custom_eye_color": "Custom eye color",
+    "eye_color": "Eye color",
+    "presets_label": "Quick palettes",
+    "brands_label": "Or pick an icon:",
     "logo_hint": "PNG, JPG, SVG - Max 2 MB",
+    "logo_import": "Import",
     "logo_preview": "Logo preview",
     "logo_remove": "Remove logo",
     "logo_no_preview": "No logo selected",
     "logo_invalid_type": "File must be an image",
     "logo_too_large": "Image must not exceed 2 MB",
-    "style_title": "Style",
     "style_square": "Squares",
     "style_rounded": "Rounded",
     "style_circle": "Circles",
@@ -40,6 +49,10 @@
         "empty_url": "Please enter a URL",
         "invalid_url": "The URL must start with http:// or https://",
         "generation": "Error while generating the QR code",
-        "logo_too_large": "Logo must not exceed 2 MB"
-    }
+        "logo_too_large": "Logo must not exceed 2 MB",
+        "logo_invalid": "The image file is invalid or unsupported",
+        "url_too_long": "The URL is too long (2000 characters max)",
+        "invalid_eye_color": "The custom eye color is invalid"
+    },
+    "style_title": "Style"
 }

@@ -25,14 +25,23 @@
     "remove": "Verwijderen",
     "drag_handle": "Sleep om te herschikken",
     "logo_title": "Logo",
-    "logo_import": "Importeren",
+    "style_dots": "Stippen",
+    "style_diamond": "Diamanten",
+    "eye_title": "Ogen (hoeken)",
+    "eye_square": "Vierkanten",
+    "eye_rounded": "Afgerond",
+    "eye_circle": "Cirkels",
+    "custom_eye_color": "Aangepaste oogkleur",
+    "eye_color": "Oogkleur",
+    "presets_label": "Snelle paletten",
+    "brands_label": "Of kies een icoon:",
     "logo_hint": "PNG, JPG, SVG - Max. 2 MB",
+    "logo_import": "Importeren",
     "logo_preview": "Logo voorbeeld",
     "logo_remove": "Logo verwijderen",
     "logo_no_preview": "Geen logo geselecteerd",
     "logo_invalid_type": "Bestand moet een afbeelding zijn",
     "logo_too_large": "Afbeelding mag 2 MB niet overschrijden",
-    "style_title": "Stijl",
     "style_square": "Vierkanten",
     "style_rounded": "Afgerond",
     "style_circle": "Cirkels",
@@ -40,6 +49,10 @@
         "empty_url": "Voer een URL in",
         "invalid_url": "De URL moet beginnen met http:// of https://",
         "generation": "Fout bij genereren van QR-code",
-        "logo_too_large": "Logo mag 2 MB niet overschrijden"
-    }
+        "logo_too_large": "Logo mag 2 MB niet overschrijden",
+        "logo_invalid": "Het afbeeldingsbestand is ongeldig of wordt niet ondersteund",
+        "url_too_long": "De URL is te lang (maximaal 2000 tekens)",
+        "invalid_eye_color": "De aangepaste oogkleur is ongeldig"
+    },
+    "style_title": "Stijl"
 }

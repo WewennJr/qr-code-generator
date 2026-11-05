@@ -22,11 +22,9 @@
         <h1>{{ translations.title }}</h1>
         <p class="subtitle">{{ translations.subtitle }}</p>
 
-        {% if error %}
-        <div class="error">{{ error }}</div>
-        {% endif %}
+        <div id="form-error" class="error {% if not error %}hidden{% endif %}" role="alert">{% if error %}{{ error }}{% endif %}</div>
 
-        <form method="POST" action="/" enctype="multipart/form-data">
+        <form id="qr-form" method="POST" action="/" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="url">{{ translations.url_label }}</label>
                 <input
@@ -34,103 +32,211 @@
                     id="url"
                     name="url"
                     placeholder="https://{{ translations.url_placeholder }}"
+                    maxlength="2048"
                     required
                     autocomplete="url"
                     value="{{ form_data.url }}"
                 >
             </div>
 
-            <fieldset class="form-group color-section">
-                <legend>{{ translations.colors_title }}</legend>
-                
-                <div class="color-mode-toggle">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="use_gradient" name="use_gradient" {% if form_data.use_gradient %}checked{% endif %} onchange="toggleGradientMode()">
-                        <span class="toggle-slider"></span>
-                        {{ translations.gradient_mode }}
-                    </label>
-                </div>
+            <details class="section" id="colors-section">
+                <summary>
+                    <span>{{ translations.colors_title }}</span>
+                    <span class="chevron" aria-hidden="true">▾</span>
+                </summary>
 
-                <div id="solid-colors" class="color-options {% if form_data.use_gradient %}hidden{% endif %}">
-                    <div class="color-picker-group">
-                        <label for="fill_color">{{ translations.fill_color }}</label>
-                        <div class="color-input-wrapper">
-                            <input type="color" id="fill_color" name="fill_color" value="{{ form_data.fill_color }}">
-                            <input type="text" class="color-hex" value="{{ form_data.fill_color }}" readonly>
+                <div class="section-body">
+                    <div class="presets-group">
+                        <span class="presets-label">{{ translations.presets_label }}</span>
+                        <div class="palette-list" role="group" aria-label="{{ translations.presets_label }}">
+                            {% for preset in [
+                                {'fill': '#000000', 'back': '#ffffff'},
+                                {'fill': '#1e3a5f', 'back': '#f0f6ff'},
+                                {'fill': '#064e3b', 'back': '#ecfdf5'},
+                                {'type': 'gradient', 'colors': ['#2563eb', '#7c3aed']},
+                                {'type': 'gradient', 'colors': ['#0f766e', '#22d3ee']},
+                                {'type': 'gradient', 'colors': ['#7c2d12', '#f59e0b']}
+                            ] %}
+                            <button
+                                type="button"
+                                class="palette-chip"
+                                {% if preset.type == 'gradient' %}
+                                data-preset-gradient="{{ preset.colors | join(',') }}"
+                                style="background: linear-gradient(135deg, {{ preset.colors[0] }}, {{ preset.colors[1] }});"
+                                aria-label="{{ preset.colors[0] }} → {{ preset.colors[1] }}"
+                                {% else %}
+                                data-preset-fill="{{ preset.fill }}"
+                                data-preset-back="{{ preset.back }}"
+                                style="background: linear-gradient(135deg, {{ preset.fill }} 50%, {{ preset.back }} 50%);"
+                                aria-label="{{ preset.fill }} / {{ preset.back }}"
+                                {% endif %}
+                            ></button>
+                            {% endfor %}
                         </div>
                     </div>
-                    <div class="color-picker-group">
-                        <label for="back_color">{{ translations.back_color }}</label>
-                        <div class="color-input-wrapper">
-                            <input type="color" id="back_color" name="back_color" value="{{ form_data.back_color }}">
-                            <input type="text" class="color-hex" value="{{ form_data.back_color }}" readonly>
-                        </div>
-                    </div>
-                </div>
 
-                <div id="gradient-colors" class="color-options {% if not form_data.use_gradient %}hidden{% endif %}">
-                    <div class="gradient-direction-group">
-                        <label for="gradient_direction">{{ translations.gradient_direction }}</label>
-                        <select id="gradient_direction" name="gradient_direction">
-                            <option value="vertical" {% if form_data.gradient_direction == 'vertical' %}selected{% endif %}>{{ translations.vertical }}</option>
-                            <option value="horizontal" {% if form_data.gradient_direction == 'horizontal' %}selected{% endif %}>{{ translations.horizontal }}</option>
-                            <option value="diagonal" {% if form_data.gradient_direction == 'diagonal' %}selected{% endif %}>{{ translations.diagonal }}</option>
-                        </select>
+                    <div class="color-mode-toggle">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="use_gradient" name="use_gradient" {% if form_data.use_gradient %}checked{% endif %} onchange="toggleGradientMode()">
+                            <span class="toggle-slider"></span>
+                            {{ translations.gradient_mode }}
+                        </label>
                     </div>
-                    
-                    <div class="gradient-stops" id="gradient-stops">
-                        {% set gradient_colors = form_data.gradient_colors if form_data.gradient_colors|length >= 2 else ['#000000', '#ff0000'] %}
-                        {% for i in range(gradient_colors|length) %}
-                        <div class="gradient-stop" data-index="{{ i }}" draggable="true">
-                            <span class="drag-handle" aria-label="{{ translations.drag_handle }}">⋮⋮</span>
-                            <div class="stop-content">
-                                <label>{{ translations.color_stop }} {{ i + 1 }}</label>
-                                <div class="color-input-wrapper">
-                                    <input type="color" name="gradient_color_{{ i }}" value="{{ gradient_colors[i] }}">
-                                    <input type="text" class="color-hex" value="{{ gradient_colors[i] }}" readonly>
-                                </div>
-                                <button type="button" class="btn btn-icon remove-stop" onclick="removeGradientStop(this)" aria-label="{{ translations.remove }}">−</button>
+
+                    <div id="solid-colors" class="color-options {% if form_data.use_gradient %}hidden{% endif %}">
+                        <div class="color-picker-group">
+                            <label for="fill_color">{{ translations.fill_color }}</label>
+                            <div class="color-input-wrapper">
+                                <input type="color" id="fill_color" name="fill_color" value="{{ form_data.fill_color }}">
+                                <input type="text" class="color-hex" value="{{ form_data.fill_color }}" readonly>
                             </div>
                         </div>
+                        <div class="color-picker-group">
+                            <label for="back_color">{{ translations.back_color }}</label>
+                            <div class="color-input-wrapper">
+                                <input type="color" id="back_color" name="back_color" value="{{ form_data.back_color }}">
+                                <input type="text" class="color-hex" value="{{ form_data.back_color }}" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="gradient-colors" class="color-options {% if not form_data.use_gradient %}hidden{% endif %}">
+                        <div class="gradient-direction-group">
+                            <label for="gradient_direction">{{ translations.gradient_direction }}</label>
+                            <select id="gradient_direction" name="gradient_direction">
+                                <option value="vertical" {% if form_data.gradient_direction == 'vertical' %}selected{% endif %}>{{ translations.vertical }}</option>
+                                <option value="horizontal" {% if form_data.gradient_direction == 'horizontal' %}selected{% endif %}>{{ translations.horizontal }}</option>
+                                <option value="diagonal" {% if form_data.gradient_direction == 'diagonal' %}selected{% endif %}>{{ translations.diagonal }}</option>
+                            </select>
+                        </div>
+
+                        <div class="gradient-stops" id="gradient-stops">
+                            {% set gradient_colors = form_data.gradient_colors if form_data.gradient_colors|length >= 2 else ['#000000', '#ff0000'] %}
+                            {% for i in range(gradient_colors|length) %}
+                            <div class="gradient-stop" data-index="{{ i }}" draggable="true">
+                                <span class="drag-handle" aria-label="{{ translations.drag_handle }}">⋮⋮</span>
+                                <div class="stop-content">
+                                    <label>{{ translations.color_stop }} {{ i + 1 }}</label>
+                                    <div class="color-input-wrapper">
+                                        <input type="color" name="gradient_color_{{ i }}" value="{{ gradient_colors[i] }}">
+                                        <input type="text" class="color-hex" value="{{ gradient_colors[i] }}" readonly>
+                                    </div>
+                                    <button type="button" class="btn btn-icon remove-stop" onclick="removeGradientStop(this)" aria-label="{{ translations.remove }}">−</button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="btn btn-secondary add-stop" onclick="addGradientStop()">{{ translations.add_color }}</button>
+                    </div>
+                </div>
+            </details>
+
+            <details class="section" id="logo-section">
+                <summary>
+                    <span>{{ translations.logo_title }}</span>
+                    <span class="chevron" aria-hidden="true">▾</span>
+                </summary>
+
+                <div class="section-body">
+                    <div class="brand-grid" role="group" aria-label="{{ translations.brands_label }}">
+                        {% for brand_id, brand in brands.items() %}
+                        <button
+                            type="button"
+                            class="brand-icon"
+                            data-brand="{{ brand_id }}"
+                            style="color: {{ brand.color }};"
+                            aria-label="{{ brand.name }}"
+                            title="{{ brand.name }}"
+                        >{{ brand.svg }}</button>
                         {% endfor %}
                     </div>
-                    <button type="button" class="btn btn-secondary add-stop" onclick="addGradientStop()">{{ translations.add_color }}</button>
-                </div>
-            </fieldset>
+                    <p class="brand-label">{{ translations.brands_label }}</p>
 
-            <fieldset class="form-group color-section logo-section">
-                <legend>{{ translations.logo_title }}</legend>
-                
-                <div class="logo-upload">
-                    <div class="logo-input-group">
-                        <label for="logo" class="btn btn-secondary logo-import-btn">
-                            <input type="file" id="logo" name="logo" accept="image/*" hidden onchange="handleLogoSelect(this)">
-                            {{ translations.logo_import }}
-                        </label>
-                        
-                        <div class="logo-preview-frame" id="logo-preview-frame">
-                            <img src="" alt="{{ translations.logo_preview }}" id="logo-preview-img" hidden>
-                            <span class="logo-preview-placeholder" id="logo-preview-placeholder">{{ translations.logo_no_preview }}</span>
+                    <div class="logo-upload">
+                        <div class="logo-input-group">
+                            <label for="logo" class="btn btn-secondary logo-import-btn">
+                                <input type="file" id="logo" name="logo_data" accept="image/png, image/jpeg, image/webp" hidden onchange="handleLogoSelect(this)">
+                                {{ translations.logo_import }}
+                            </label>
+
+                            <div class="logo-preview-frame" id="logo-preview-frame">
+                                <img src="" alt="{{ translations.logo_preview }}" id="logo-preview-img" hidden>
+                                <span class="logo-preview-placeholder" id="logo-preview-placeholder">{{ translations.logo_no_preview }}</span>
+                            </div>
+                            <button type="button" class="btn btn-icon logo-remove" onclick="removeLogo()" aria-label="{{ translations.logo_remove }}" id="logo-remove-btn" hidden>×</button>
                         </div>
-                        <button type="button" class="btn btn-icon logo-remove" onclick="removeLogo()" aria-label="{{ translations.logo_remove }}" id="logo-remove-btn" hidden>×</button>
+                        <input type="hidden" name="logo_data" id="logo-data-input" value="{% if form_data.logo_preview %}data:image/png;base64,{{ form_data.logo_preview }}{% endif %}">
+                        <p class="logo-hint">{{ translations.logo_hint }}</p>
                     </div>
-                    <p class="logo-hint">{{ translations.logo_hint }}</p>
                 </div>
-            </fieldset>
+            </details>
 
-            <fieldset class="form-group color-section style-section">
-                <legend>{{ translations.style_title }}</legend>
-                
-                <div class="style-options" id="style-options">
-                    {% for style_key, style_label in [('square', translations.style_square), ('rounded', translations.style_rounded), ('circle', translations.style_circle)] %}
-                    <label class="style-option {% if form_data.style == style_key %}selected{% endif %}" data-style="{{ style_key }}">
-                        <input type="radio" name="style" value="{{ style_key }}" {% if form_data.style == style_key %}checked{% endif %}>
-                        <span class="style-preview" data-style="{{ style_key }}"></span>
-                        <span class="style-label">{{ style_label }}</span>
-                    </label>
-                    {% endfor %}
+            <details class="section" id="style-section">
+                <summary>
+                    <span>{{ translations.style_title }}</span>
+                    <span class="chevron" aria-hidden="true">▾</span>
+                </summary>
+
+                <div class="section-body">
+                    <div class="style-options" id="style-options">
+                        {% for style_key, style_label in [
+                            ('square', translations.style_square),
+                            ('rounded', translations.style_rounded),
+                            ('dots', translations.style_dots),
+                            ('diamond', translations.style_diamond)
+                        ] %}
+                        <label class="style-option {% if form_data.style == style_key %}selected{% endif %}" data-style="{{ style_key }}">
+                            <input type="radio" name="style" value="{{ style_key }}" {% if form_data.style == style_key %}checked{% endif %}>
+                            <span class="style-preview" data-style="{{ style_key }}"></span>
+                            <span class="style-label">{{ style_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    <div class="eye-color-group">
+                        <div class="toggle-label-wrap">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="use_eye_color" name="use_eye_color" {% if form_data.use_eye_color %}checked{% endif %} onchange="toggleEyeColor()">
+                                <span class="toggle-slider"></span>
+                                {{ translations.custom_eye_color }}
+                            </label>
+                        </div>
+
+                        <div id="eye-color-options" class="eye-color-options {% if not form_data.use_eye_color %}hidden{% endif %}">
+                            <div class="color-picker-group">
+                                <label for="eye_color">{{ translations.eye_color }}</label>
+                                <div class="color-input-wrapper">
+                                    <input type="color" id="eye_color" name="eye_color" value="{{ form_data.eye_color }}">
+                                    <input type="text" class="color-hex" value="{{ form_data.eye_color }}" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </fieldset>
+            </details>
+
+            <details class="section" id="eye-style-section">
+                <summary>
+                    <span>{{ translations.eye_title }}</span>
+                    <span class="chevron" aria-hidden="true">▾</span>
+                </summary>
+
+                <div class="section-body">
+                    <div class="style-options eye-options" id="eye-style-options">
+                        {% for eye_key, eye_label in [
+                            ('square', translations.eye_square),
+                            ('rounded', translations.eye_rounded),
+                            ('circle', translations.eye_circle)
+                        ] %}
+                        <label class="style-option {% if form_data.eye_style == eye_key %}selected{% endif %}" data-style="{{ eye_key }}">
+                            <input type="radio" name="eye_style" value="{{ eye_key }}" {% if form_data.eye_style == eye_key %}checked{% endif %}>
+                            <span class="style-preview eye-preview" data-eyestyle="{{ eye_key }}"></span>
+                            <span class="style-label">{{ eye_label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
 
             <div class="btn-group">
                 <button type="submit" class="btn btn-primary">
@@ -139,11 +245,12 @@
             </div>
         </form>
 
+        <div id="qr-result-wrap">
         {% if qr_code_data %}
         <div class="qr-result">
             <h2>{{ translations.qr_result }}</h2>
 
-            <div class="qr-image">
+            <div class="qr-image" id="qr-image">
                 <img
                     src="data:image/png;base64,{{ qr_code_data }}"
                     alt="{{ translations.qr_alt }}"
@@ -157,11 +264,14 @@
                 <input type="hidden" name="use_gradient" value="{{ 'on' if form_data.use_gradient else '' }}">
                 <input type="hidden" name="gradient_direction" value="{{ form_data.gradient_direction }}">
                 <input type="hidden" name="style" value="{{ form_data.style }}">
+                <input type="hidden" name="eye_style" value="{{ form_data.eye_style }}">
+                <input type="hidden" name="use_eye_color" value="{{ 'on' if form_data.use_eye_color else '' }}">
+                <input type="hidden" name="eye_color" value="{{ form_data.eye_color }}">
                 {% for i in range(form_data.gradient_colors|length) %}
                 <input type="hidden" name="gradient_color_{{ i }}" value="{{ form_data.gradient_colors[i] }}">
                 {% endfor %}
                 {% if form_data.logo_preview %}
-                <input type="hidden" name="logo_preview" value="{{ form_data.logo_preview }}">
+                <input type="hidden" name="logo_data" value="data:image/png;base64,{{ form_data.logo_preview }}">
                 {% endif %}
 
                 <button type="submit" class="btn btn-primary">
@@ -178,9 +288,18 @@
             </form>
         </div>
         {% endif %}
+        </div>
     </div>
 
     <script>
+        const TRANSLATIONS = {
+            copySuccess: {{ translations.copy_success | tojson }},
+            copyErrorConsole: {{ translations.copy_error_console | tojson }},
+            copyError: {{ translations.copy_error | tojson }},
+            colorStop: {{ translations.color_stop | tojson }},
+        };
+
+        /* ---------------- Gradient mode ---------------- */
         function toggleGradientMode() {
             const useGradient = document.getElementById('use_gradient').checked;
             document.getElementById('solid-colors').classList.toggle('hidden', useGradient);
@@ -190,18 +309,15 @@
         function updateGradientStops() {
             const container = document.getElementById('gradient-stops');
             const stops = container.querySelectorAll('.gradient-stop');
-            
+
             stops.forEach((stop, index) => {
                 stop.dataset.index = index;
-                stop.querySelector('label').textContent = `{{ translations.color_stop }} ${index + 1}`;
-                
+                stop.querySelector('label').textContent = `${TRANSLATIONS.colorStop} ${index + 1}`;
+
                 const colorInput = stop.querySelector('input[type="color"]');
-                const hexInput = stop.querySelector('.color-hex');
-                const removeBtn = stop.querySelector('.remove-stop');
-                
                 colorInput.name = `gradient_color_${index}`;
-                hexInput.name = `gradient_color_${index}_hex`;
-                
+
+                const removeBtn = stop.querySelector('.remove-stop');
                 removeBtn.disabled = stops.length <= 2;
                 removeBtn.style.opacity = stops.length <= 2 ? '0.3' : '1';
                 removeBtn.style.cursor = stops.length <= 2 ? 'not-allowed' : 'pointer';
@@ -211,49 +327,53 @@
         function addGradientStop() {
             const container = document.getElementById('gradient-stops');
             const stops = container.querySelectorAll('.gradient-stop');
-            
+
             if (stops.length >= 5) return;
-            
+
             const lastStop = stops[stops.length - 1];
             const lastColor = lastStop.querySelector('input[type="color"]').value;
-            
+
             const newStop = document.createElement('div');
             newStop.className = 'gradient-stop';
             newStop.draggable = true;
             newStop.innerHTML = `
-                <span class="drag-handle" aria-label="{{ translations.drag_handle }}">⋮⋮</span>
+                <span class="drag-handle">⋮⋮</span>
                 <div class="stop-content">
-                    <label>{{ translations.color_stop }} ${stops.length + 1}</label>
+                    <label>${TRANSLATIONS.colorStop} ${stops.length + 1}</label>
                     <div class="color-input-wrapper">
                         <input type="color" name="gradient_color_${stops.length}" value="${lastColor}">
                         <input type="text" class="color-hex" value="${lastColor}" readonly>
                     </div>
-                    <button type="button" class="btn btn-icon remove-stop" onclick="removeGradientStop(this)" aria-label="{{ translations.remove }}">−</button>
+                    <button type="button" class="btn btn-icon remove-stop" onclick="removeGradientStop(this)">−</button>
                 </div>
             `;
-            
+
             container.appendChild(newStop);
             setupDragAndDrop(newStop);
             setupColorSync(newStop.querySelector('input[type="color"]'));
             updateGradientStops();
+            schedulePreview();
         }
 
         function removeGradientStop(button) {
             const container = document.getElementById('gradient-stops');
             const stops = container.querySelectorAll('.gradient-stop');
-            
+
             if (stops.length <= 2) return;
-            
+
             button.closest('.gradient-stop').remove();
             updateGradientStops();
+            schedulePreview();
         }
 
         function setupColorSync(colorInput) {
             colorInput.addEventListener('input', function() {
-                this.nextElementSibling.value = this.value;
+                this.parentElement.querySelector('.color-hex').value = this.value;
+                schedulePreview();
             });
         }
 
+        /* ---------------- Drag & drop reorder ---------------- */
         let draggedElement = null;
 
         function setupDragAndDrop(element) {
@@ -281,12 +401,12 @@
         function handleDragOver(e) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            
+
             const container = document.getElementById('gradient-stops');
             const stops = container.querySelectorAll('.gradient-stop:not(.dragging)');
-            
+
             stops.forEach(stop => stop.classList.remove('drag-over'));
-            
+
             const afterElement = getDragAfterElement(container, e.clientY);
             if (afterElement) {
                 afterElement.classList.add('drag-over');
@@ -295,28 +415,29 @@
 
         function handleDrop(e) {
             e.preventDefault();
-            
+
             if (!draggedElement) return;
-            
+
             const container = document.getElementById('gradient-stops');
             const afterElement = getDragAfterElement(container, e.clientY);
-            
+
             if (afterElement) {
                 container.insertBefore(draggedElement, afterElement);
             } else {
                 container.appendChild(draggedElement);
             }
-            
+
             updateGradientStops();
+            schedulePreview();
         }
 
         function getDragAfterElement(container, y) {
             const draggableElements = [...container.querySelectorAll('.gradient-stop:not(.dragging)')];
-            
+
             return draggableElements.reduce((closest, child) => {
                 const box = child.getBoundingClientRect();
                 const offset = y - box.top - box.height / 2;
-                
+
                 if (offset < 0 && offset > closest.offset) {
                     return { offset: offset, element: child };
                 } else {
@@ -325,31 +446,132 @@
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
 
-document.querySelectorAll('input[type="color"]').forEach(setupColorSync);
-        document.querySelectorAll('.gradient-stop').forEach(setupDragAndDrop);
+        /* ---------------- Palette presets ---------------- */
+        function setSolidColor(inputId, value) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            input.value = value;
+            input.parentElement.querySelector('.color-hex').value = value;
+        }
 
-        // Style selection - immediate visual feedback
-        const styleOptions = document.querySelectorAll('.style-option');
-        styleOptions.forEach(option => {
-            option.addEventListener('click', function() {
-                const style = this.dataset.style;
-                styleOptions.forEach(opt => opt.classList.remove('selected'));
-                this.classList.add('selected');
-                this.querySelector('input[type="radio"]').checked = true;
+        document.querySelectorAll('.palette-chip').forEach(chip => {
+            chip.addEventListener('click', function() {
+                if (this.hasAttribute('data-preset-gradient')) {
+                    const colors = this.getAttribute('data-preset-gradient').split(',');
+                    if (!document.getElementById('use_gradient').checked) {
+                        document.getElementById('use_gradient').checked = true;
+                        toggleGradientMode();
+                    }
+                    const stops = document.querySelectorAll('#gradient-stops .gradient-stop');
+                    stops.forEach((stop, i) => {
+                        if (colors[i]) {
+                            const input = stop.querySelector('input[type="color"]');
+                            input.value = colors[i];
+                            input.parentElement.querySelector('.color-hex').value = colors[i];
+                        }
+                    });
+                } else {
+                    if (document.getElementById('use_gradient').checked) {
+                        document.getElementById('use_gradient').checked = false;
+                        toggleGradientMode();
+                    }
+                    setSolidColor('fill_color', this.getAttribute('data-preset-fill'));
+                    setSolidColor('back_color', this.getAttribute('data-preset-back'));
+                }
+                schedulePreview();
             });
         });
 
+        /* ---------------- Style selection ---------------- */
+        function setupOptionGroup(groupId) {
+            const options = document.querySelectorAll(`#${groupId} .style-option`);
+            options.forEach(option => {
+                option.addEventListener('click', function() {
+                    options.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    this.querySelector('input[type="radio"]').checked = true;
+                    schedulePreview();
+                });
+            });
+        }
+        setupOptionGroup('style-options');
+        setupOptionGroup('eye-style-options');
+
+        /* ---------------- Eye color ---------------- */
+        function toggleEyeColor() {
+            const useEyeColor = document.getElementById('use_eye_color').checked;
+            document.getElementById('eye-color-options').classList.toggle('hidden', !useEyeColor);
+        }
+
+        /* ---------------- Logos ---------------- */
         const logoInput = document.getElementById('logo');
-        const logoPreviewFrame = document.getElementById('logo-preview-frame');
         const logoPreviewImg = document.getElementById('logo-preview-img');
         const logoPreviewPlaceholder = document.getElementById('logo-preview-placeholder');
         const logoRemoveBtn = document.getElementById('logo-remove-btn');
+        const logoDataInput = document.getElementById('logo-data-input');
+        let logoUrl = '';
+
+        function setLogoPreview(src) {
+            logoUrl = src;
+            logoDataInput.value = src;
+            if (src) {
+                logoPreviewImg.src = src;
+                logoPreviewImg.hidden = false;
+                logoPreviewPlaceholder.hidden = true;
+                logoRemoveBtn.hidden = false;
+            } else {
+                logoPreviewImg.src = '';
+                logoPreviewImg.hidden = true;
+                logoPreviewPlaceholder.hidden = false;
+                logoRemoveBtn.hidden = true;
+            }
+        }
+
+        async function setBrandLogo(brandId) {
+            try {
+                const response = await fetch(`{{ url_for('static', filename='brands') }}/${brandId}.svg`);
+                if (!response.ok) throw new Error('fetch failed');
+                const svgText = await response.text();
+                const dataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgText)))}`;
+
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = dataUrl;
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                const padding = 512 * 0.06;
+                ctx.drawImage(img, padding, padding, 512 - 2 * padding, 512 - 2 * padding);
+
+                ctx.globalCompositeOperation = 'source-in';
+                const color = getComputedStyle(document.querySelector(`.brand-icon[data-brand="${brandId}"]`)).color;
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, 512, 512);
+
+                setLogoPreview(canvas.toDataURL('image/png'));
+                document.querySelectorAll('.brand-icon').forEach(btn => btn.classList.remove('selected'));
+                document.querySelector(`.brand-icon[data-brand="${brandId}"]`).classList.add('selected');
+                logoInput.value = '';
+                schedulePreview();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        document.querySelectorAll('.brand-icon').forEach(btn => {
+            btn.addEventListener('click', () => setBrandLogo(btn.dataset.brand));
+        });
 
         function handleLogoSelect(input) {
             const file = input.files[0];
             if (!file) return;
-            
-            if (!file.type.startsWith('image/')) {
+
+            if (!file.type.startsWith('image/') || ['image/svg+xml'].includes(file.type)) {
                 alert('{{ translations.logo_invalid_type }}');
                 input.value = '';
                 return;
@@ -359,31 +581,99 @@ document.querySelectorAll('input[type="color"]').forEach(setupColorSync);
                 input.value = '';
                 return;
             }
-            
+
             const reader = new FileReader();
             reader.onload = (e) => {
-                if (logoPreviewImg) {
-                    logoPreviewImg.src = e.target.result;
-                    logoPreviewImg.hidden = false;
-                    logoPreviewPlaceholder.hidden = true;
-                    logoRemoveBtn.hidden = false;
-                }
+                document.querySelectorAll('.brand-icon').forEach(btn => btn.classList.remove('selected'));
+                setLogoPreview(e.target.result);
+                schedulePreview();
             };
             reader.readAsDataURL(file);
         }
 
         function removeLogo() {
-            if (logoInput) logoInput.value = '';
-            if (logoPreviewImg) {
-                logoPreviewImg.src = '';
-                logoPreviewImg.hidden = true;
-                logoPreviewPlaceholder.hidden = false;
-                logoRemoveBtn.hidden = true;
+            logoInput.value = '';
+            setLogoPreview('');
+            document.querySelectorAll('.brand-icon').forEach(btn => btn.classList.remove('selected'));
+            schedulePreview();
+        }
+
+        /* ---------------- Live preview ---------------- */
+        const form = document.getElementById('qr-form');
+        let previewTimer = null;
+        let lastPreviewKey = '';
+
+        function schedulePreview() {
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(runPreview, 450);
+        }
+
+        form.addEventListener('input', schedulePreview);
+        form.addEventListener('change', schedulePreview);
+
+        async function runPreview() {
+            const urlInput = document.getElementById('url');
+            if (!urlInput.value || !urlInput.checkValidity()) return;
+
+            const fd = new FormData(form);
+            const key = JSON.stringify([...fd.entries()]);
+            if (key === lastPreviewKey) return;
+            lastPreviewKey = key;
+
+            try {
+                const response = await fetch('/', { method: 'POST', body: fd });
+                if (!response.ok) return;
+                const html = await response.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+
+                const errorEl = doc.querySelector('#form-error');
+                const localError = document.getElementById('form-error');
+                if (errorEl && errorEl.textContent.trim()) {
+                    localError.textContent = errorEl.textContent.trim();
+                    localError.classList.remove('hidden');
+                } else {
+                    localError.textContent = '';
+                    localError.classList.add('hidden');
+                }
+
+                const resultWrap = doc.querySelector('#qr-result-wrap');
+                const localWrap = document.getElementById('qr-result-wrap');
+                if (resultWrap && resultWrap.innerHTML.trim()) {
+                    localWrap.innerHTML = resultWrap.innerHTML;
+                }
+            } catch (e) {
+                /* network error: keep previous preview */
             }
         }
 
+        /* ---------------- Download & copy ---------------- */
+        document.addEventListener('submit', async function(e) {
+            const downloadForm = e.target.closest('form[action="/download"]');
+            if (!downloadForm) return;
+            e.preventDefault();
+
+            const fd = new FormData(form);
+            fd.delete('logo_data');
+
+            const qrLogoInput = downloadForm.querySelector('input[name="logo_data"]');
+            if (qrLogoInput && qrLogoInput.value) fd.append('logo_data', qrLogoInput.value);
+
+            try {
+                const response = await fetch('/download', { method: 'POST', body: fd });
+                if (!response.ok) throw new Error('download failed');
+                const blob = await response.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'qrcode.png';
+                a.click();
+                URL.revokeObjectURL(a.href);
+            } catch (err) {
+                downloadForm.submit();
+            }
+        });
+
         async function copyToClipboard() {
-            const img = document.querySelector('.qr-image img');
+            const img = document.querySelector('#qr-image img');
             if (!img) return;
 
             try {
@@ -394,12 +684,19 @@ document.querySelectorAll('input[type="color"]').forEach(setupColorSync);
                     new ClipboardItem({ 'image/png': blob })
                 ]);
 
-                alert('{{ translations.copy_success }}');
+                alert(TRANSLATIONS.copySuccess);
             } catch (err) {
-                console.error('{{ translations.copy_error_console }}', err);
-                alert('{{ translations.copy_error }}');
+                console.error(TRANSLATIONS.copyErrorConsole, err);
+                alert(TRANSLATIONS.copyError);
             }
         }
+
+        /* ---------------- Init ---------------- */
+        document.querySelectorAll('#qr-form input[type="color"]').forEach(setupColorSync);
+        document.querySelectorAll('.gradient-stop').forEach(setupDragAndDrop);
+        updateGradientStops();
+        toggleGradientMode();
+        toggleEyeColor();
     </script>
 </body>
 </html>

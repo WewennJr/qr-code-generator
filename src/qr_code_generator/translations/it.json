@@ -25,14 +25,23 @@
     "remove": "Rimuovi",
     "drag_handle": "Trascina per riordinare",
     "logo_title": "Logo",
-    "logo_import": "Importa",
+    "style_dots": "Punti",
+    "style_diamond": "Diamanti",
+    "eye_title": "Occhi (angoli)",
+    "eye_square": "Quadrati",
+    "eye_rounded": "Arrotondati",
+    "eye_circle": "Cerchi",
+    "custom_eye_color": "Colore occhi personalizzato",
+    "eye_color": "Colore degli occhi",
+    "presets_label": "Palette rapide",
+    "brands_label": "Oppure scegli un'icona:",
     "logo_hint": "PNG, JPG, SVG - Max 2 MB",
+    "logo_import": "Importa",
     "logo_preview": "Anteprima logo",
     "logo_remove": "Rimuovi logo",
     "logo_no_preview": "Nessun logo selezionato",
     "logo_invalid_type": "Il file deve essere un'immagine",
     "logo_too_large": "L'immagine non deve superare 2 MB",
-    "style_title": "Stile",
     "style_square": "Quadrati",
     "style_rounded": "Arrotondati",
     "style_circle": "Cerchi",
@@ -40,6 +49,10 @@
         "empty_url": "Inserisci un URL",
         "invalid_url": "L'URL deve iniziare con http:// o https://",
         "generation": "Errore durante la generazione del codice QR",
-        "logo_too_large": "Il logo non deve superare 2 MB"
-    }
+        "logo_too_large": "Il logo non deve superare 2 MB",
+        "logo_invalid": "Il file immagine non è valido o non è supportato",
+        "url_too_long": "L'URL è troppo lunga (massimo 2000 caratteri)",
+        "invalid_eye_color": "Il colore degli occhi personalizzato non è valido"
+    },
+    "style_title": "Stile"
 }

@@ -25,14 +25,23 @@
     "remove": "Retirer",
     "drag_handle": "Glisser pour réorganiser",
     "logo_title": "Logo",
-    "logo_import": "Importer",
+    "style_dots": "Points",
+    "style_diamond": "Diamants",
+    "eye_title": "Yeux (coins)",
+    "eye_square": "Carrés",
+    "eye_rounded": "Arrondis",
+    "eye_circle": "Ronds",
+    "custom_eye_color": "Couleur des yeux personnalisée",
+    "eye_color": "Couleur des yeux",
+    "presets_label": "Palettes rapides",
+    "brands_label": "Ou choisissez une icône :",
     "logo_hint": "PNG, JPG, SVG - Max 2 Mo",
+    "logo_import": "Importer",
     "logo_preview": "Aperçu du logo",
     "logo_remove": "Retirer le logo",
     "logo_no_preview": "Aucun logo sélectionné",
     "logo_invalid_type": "Le fichier doit être une image",
     "logo_too_large": "L'image ne doit pas dépasser 2 Mo",
-    "style_title": "Style",
     "style_square": "Carrés",
     "style_rounded": "Arrondis",
     "style_circle": "Ronds",
@@ -40,6 +49,10 @@
         "empty_url": "Veuillez entrer une URL",
         "invalid_url": "L'URL doit commencer par http:// ou https://",
         "generation": "Erreur lors de la génération",
-        "logo_too_large": "Le logo ne doit pas dépasser 2 Mo"
-    }
+        "logo_too_large": "Le logo ne doit pas dépasser 2 Mo",
+        "logo_invalid": "Le fichier image est invalide ou non supporté",
+        "url_too_long": "L'URL est trop longue (2000 caractères maximum)",
+        "invalid_eye_color": "La couleur des yeux personnalisée est invalide"
+    },
+    "style_title": "Style"
 }
