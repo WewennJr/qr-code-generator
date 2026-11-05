@@ -24,9 +24,9 @@ MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB
 MAX_LOGO_DIMENSION_PX = 1000  # Downscale oversized logos before embedding
 MAX_URL_LENGTH = 2048
 MAX_GRADIENT_STOPS = 5
-LOGO_MAX_DIMENSION = 0.22  # Logo max 22% of QR code size for scannability
-LOGO_PADDING = 10
-LOGO_PLATE_RADIUS = 0.22  # Relative to plate size
+LOGO_MAX_DIMENSION = 0.26  # Logo plate max 26% of QR size for scannability
+LOGO_PADDING_RATIO = 0.16  # Padding relative to the plate max width/height
+LOGO_PLATE_RADIUS = 0.24  # Relative to the smaller plate side
 LOGO_PLATE_SUPERSAMPLE = 4  # Render the logo plate at 4x then downscale
 
 ALLOWED_MODULE_STYLES = {"square", "rounded", "dots", "diamond"}
@@ -210,8 +210,9 @@ def get_requested_logo() -> Optional[bytes]:
 def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes, back_color: str = "#ffffff") -> Image.Image:
     """Embed a logo on a clean, anti-aliased rounded plate.
 
-    Both the plate and the logo are rendered at 4x resolution then downscaled,
-    so rounded corners and logo edges look crisp instead of pixelated.
+    The plate follows the logo aspect ratio (instead of a fixed square) and is
+    rendered at 4x resolution then downscaled, so rounded corners and logo
+    edges look crisp instead of pixelated.
     """
     try:
         logo = Image.open(io.BytesIO(logo_data))
@@ -219,31 +220,35 @@ def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes, back_color: str = "#
             logo = logo.convert("RGBA")
 
         qr_width, qr_height = qr_img.size
-        plate_size = int(min(qr_width, qr_height) * LOGO_MAX_DIMENSION)
-        hi_size = plate_size * LOGO_PLATE_SUPERSAMPLE
-        hi_padding = LOGO_PADDING * LOGO_PLATE_SUPERSAMPLE
+        qr_min = min(qr_width, qr_height)
+        avail = int(qr_min * LOGO_MAX_DIMENSION)
+        padding = int(avail * LOGO_PADDING_RATIO)
+        inner_max = max(avail - 2 * padding, 8)
 
         # Keep aspect ratio, fit the logo inside the plate with padding
-        logo.thumbnail(
-            (hi_size - 2 * hi_padding, hi_size - 2 * hi_padding),
-            Image.Resampling.LANCZOS,
-        )
-        logo_width, logo_height = logo.size
+        logo.thumbnail((inner_max * LOGO_PLATE_SUPERSAMPLE, inner_max * LOGO_PLATE_SUPERSAMPLE), Image.Resampling.LANCZOS)
+        logo_hiw, logo_hih = logo.size
 
-        plate = Image.new("RGBA", (hi_size, hi_size), (0, 0, 0, 0))
+        plate_hiw = logo_hiw + 2 * padding * LOGO_PLATE_SUPERSAMPLE
+        plate_hih = logo_hih + 2 * padding * LOGO_PLATE_SUPERSAMPLE
+        hi_radius = int(min(plate_hiw, plate_hih) * LOGO_PLATE_RADIUS)
+
+        plate = Image.new("RGBA", (plate_hiw, plate_hih), (0, 0, 0, 0))
         plate_draw = ImageDraw.Draw(plate)
         plate_draw.rounded_rectangle(
-            [0, 0, hi_size - 1, hi_size - 1],
-            radius=int(hi_size * LOGO_PLATE_RADIUS),
+            [0, 0, plate_hiw - 1, plate_hih - 1],
+            radius=hi_radius,
             fill=(*hex_to_rgb(back_color), 255),
         )
-        plate.paste(logo, ((hi_size - logo_width) // 2, (hi_size - logo_height) // 2), logo)
+        plate.paste(logo, ((plate_hiw - logo_hiw) // 2, (plate_hih - logo_hih) // 2), logo)
 
-        plate = plate.resize((plate_size, plate_size), Image.Resampling.LANCZOS)
+        plate_w = plate_hiw // LOGO_PLATE_SUPERSAMPLE
+        plate_h = plate_hih // LOGO_PLATE_SUPERSAMPLE
+        plate = plate.resize((plate_w, plate_h), Image.Resampling.LANCZOS)
 
         qr_img = qr_img.convert("RGBA")
-        plate_x = (qr_width - plate_size) // 2
-        plate_y = (qr_height - plate_size) // 2
+        plate_x = (qr_width - plate_w) // 2
+        plate_y = (qr_height - plate_h) // 2
 
         qr_img.paste(plate, (plate_x, plate_y), plate)
 
@@ -368,9 +373,24 @@ def generate_qr_code(
 
     module_count = size - 2 * border
     fill_rgb = hex_to_rgb(fill_color)
-    eye_rgb = hex_to_rgb(eye_color) if eye_color else fill_rgb
     use_gradient = bool(gradient_colors) and len(gradient_colors) >= 2
     gradient = generate_gradient_colors(gradient_colors, module_count) if use_gradient else None
+
+    def color_at(x: int, y: int):
+        """Module color at matrix coordinates: gradient-aware, QR color otherwise."""
+        if gradient:
+            gx = x - border
+            gy = y - border
+            if gradient_direction == "horizontal":
+                return gradient[max(0, min(gx, module_count - 1))]
+            if gradient_direction == "diagonal":
+                return gradient[max(0, min(gx + gy, module_count - 1))]
+            return gradient[max(0, min(gy, module_count - 1))]
+        return fill_rgb
+
+    # Without a custom eye color the eyes follow the QR code color
+    # (fill color, or the gradient shade at each corner)
+    eye_rgb = hex_to_rgb(eye_color) if eye_color else None
 
     for y, row in enumerate(matrix):
         for x, cell in enumerate(row):
@@ -380,22 +400,12 @@ def generate_qr_code(
             px = x * box_size
             py = y * box_size
 
-            if gradient:
-                gx = x - border
-                gy = y - border
-                if gradient_direction == "horizontal":
-                    color = gradient[max(0, min(gx, module_count - 1))]
-                elif gradient_direction == "diagonal":
-                    color = gradient[max(0, min(gx + gy, module_count - 1))]
-                else:
-                    color = gradient[max(0, min(gy, module_count - 1))]
-            else:
-                color = fill_rgb
+            color = color_at(x, y)
 
             draw_module(draw, px, py, box_size, color, style)
 
     for fx, fy in finder_positions(size, border):
-        draw_finder_eye(draw, fx, fy, box_size, eye_rgb, eye_style)
+        draw_finder_eye(draw, fx, fy, box_size, eye_rgb or color_at(fx, fy), eye_style)
 
     if logo_data:
         img = embed_logo_in_qr(img, logo_data, back_color)
