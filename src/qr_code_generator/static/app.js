@@ -387,18 +387,38 @@ document.addEventListener('submit', async function(e) {
     }
 });
 
+function imageToPngBlob(src) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            canvas.getContext('2d').drawImage(image, 0, 0);
+            canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('canvas toBlob failed'));
+            }, 'image/png');
+        };
+        image.onerror = () => reject(new Error('image load failed'));
+        image.src = src;
+    });
+}
+
 async function copyToClipboard() {
     const img = document.querySelector('#qr-image img');
     if (!img) return;
 
-    try {
-        const response = await fetch(img.src);
-        const blob = await response.blob();
+    if (!navigator.clipboard || !window.ClipboardItem) {
+        alert(I18N.copyError);
+        return;
+    }
 
+    try {
+        const blob = await imageToPngBlob(img.src);
         await navigator.clipboard.write([
             new ClipboardItem({ 'image/png': blob })
         ]);
-
         alert(I18N.copySuccess);
     } catch (err) {
         console.error(I18N.copyErrorConsole, err);
