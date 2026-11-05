@@ -207,8 +207,23 @@ def get_requested_logo() -> Optional[bytes]:
     return None
 
 
-def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes, back_color: str = "#ffffff") -> Image.Image:
-    """Embed a logo on a clean, anti-aliased rounded plate.
+# Logo plate corner radius adapting to the module style (relative to the
+# smaller plate side); "circle" plates use a full round shape.
+STYLE_LOGO_PLATE_RADIUS = {
+    "square": 0.07,
+    "rounded": LOGO_PLATE_RADIUS,
+    "dots": 0.5,
+    "diamond": 0.16,
+}
+
+
+def embed_logo_in_qr(
+    qr_img: Image.Image,
+    logo_data: bytes,
+    back_color: str = "#ffffff",
+    style: str = "rounded",
+) -> Image.Image:
+    """Embed a logo on a clean, anti-aliased plate matching the module style.
 
     The plate follows the logo aspect ratio (instead of a fixed square) and is
     rendered at 4x resolution then downscaled, so rounded corners and logo
@@ -224,6 +239,7 @@ def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes, back_color: str = "#
         avail = int(qr_min * LOGO_MAX_DIMENSION)
         padding = int(avail * LOGO_PADDING_RATIO)
         inner_max = max(avail - 2 * padding, 8)
+        plate_radius = STYLE_LOGO_PLATE_RADIUS.get(style, LOGO_PLATE_RADIUS)
 
         # Keep aspect ratio, fit the logo inside the plate with padding
         logo.thumbnail((inner_max * LOGO_PLATE_SUPERSAMPLE, inner_max * LOGO_PLATE_SUPERSAMPLE), Image.Resampling.LANCZOS)
@@ -231,7 +247,7 @@ def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes, back_color: str = "#
 
         plate_hiw = logo_hiw + 2 * padding * LOGO_PLATE_SUPERSAMPLE
         plate_hih = logo_hih + 2 * padding * LOGO_PLATE_SUPERSAMPLE
-        hi_radius = int(min(plate_hiw, plate_hih) * LOGO_PLATE_RADIUS)
+        hi_radius = int(min(plate_hiw, plate_hih) * plate_radius)
 
         plate = Image.new("RGBA", (plate_hiw, plate_hih), (0, 0, 0, 0))
         plate_draw = ImageDraw.Draw(plate)
@@ -408,7 +424,7 @@ def generate_qr_code(
         draw_finder_eye(draw, fx, fy, box_size, eye_rgb or color_at(fx, fy), eye_style)
 
     if logo_data:
-        img = embed_logo_in_qr(img, logo_data, back_color)
+        img = embed_logo_in_qr(img, logo_data, back_color, style)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
