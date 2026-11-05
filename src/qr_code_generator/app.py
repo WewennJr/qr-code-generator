@@ -2,11 +2,12 @@ import io
 import base64
 import json
 import re
+import secrets
 from pathlib import Path
 from typing import List, Optional, Tuple
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urljoin
 
-from flask import Flask, render_template, request, send_file
+from flask import Flask, abort, g, render_template, request, send_file
 from markupsafe import Markup
 import qrcode
 from PIL import Image, ImageDraw
@@ -559,17 +560,54 @@ def build_form_data(settings: dict, logo_b64: Optional[str]) -> dict:
 # ---------------------------------------------------------------------------
 
 
+@app.before_request
+def enforce_same_origin():
+    """CSRF guard: browsers send Origin/Referer on POST; reject mismatches.
+
+    Requests without those headers (curl, no-JS tools) are allowed.
+    """
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return None
+
+    origin = request.headers.get("Origin")
+    if origin:
+        try:
+            if urlsplit(origin).netloc != request.host:
+                abort(403)
+            return None
+        except ValueError:
+            abort(403)
+
+    referrer = request.headers.get("Referer")
+    if referrer:
+        referrer_host = urljoin(referrer, "/")
+        try:
+            if urlsplit(referrer_host).netloc != request.host:
+                abort(403)
+        except ValueError:
+            abort(403)
+    return None
+
+
 @app.after_request
 def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    if request.method == "POST":
+        # Generated QR images embed user-provided URLs: never cache them
+        response.headers["Cache-Control"] = "no-store"
+    if request.is_secure:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    nonce = f"'nonce-{g.get('csp_nonce')}' " if g.get("csp_nonce") else ""
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "img-src 'self' data:; "
-        "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self'; "
+        f"script-src 'self' {nonce}; "
         "form-action 'self'; "
         "base-uri 'self'; "
         "frame-ancestors 'none'"
@@ -581,6 +619,7 @@ def set_security_headers(response):
 def index():
     language = get_language()
     translations = load_translations(language)
+    g.csp_nonce = secrets.token_urlsafe(16)
 
     qr_code_data = None
     error = None
@@ -621,6 +660,7 @@ def index():
         language=language,
         form_data=form_data,
         brands=get_brands(),
+        csp_nonce=g.csp_nonce,
     )
 
 

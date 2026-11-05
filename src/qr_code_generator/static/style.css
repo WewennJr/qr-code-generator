@@ -1113,6 +1113,21 @@ input[type="url"]:focus {
     fill: currentColor;
 }
 
+.brand-icon[data-brand="github"] { color: #181717; }
+.brand-icon[data-brand="x"] { color: #000000; }
+.brand-icon[data-brand="instagram"] { color: #e4405f; }
+.brand-icon[data-brand="linkedin"] { color: #0a66c2; }
+.brand-icon[data-brand="youtube"] { color: #ff0000; }
+.brand-icon[data-brand="whatsapp"] { color: #25d366; }
+.brand-icon[data-brand="facebook"] { color: #1877f2; }
+.brand-icon[data-brand="tiktok"] { color: #0f0f0f; }
+
+[data-theme="dark"] .brand-icon[data-brand="github"],
+[data-theme="dark"] .brand-icon[data-brand="x"],
+[data-theme="dark"] .brand-icon[data-brand="tiktok"] {
+    color: #f0f6ff;
+}
+
 .brand-label {
     margin: 0 0 1rem;
     color: var(--text-muted);
