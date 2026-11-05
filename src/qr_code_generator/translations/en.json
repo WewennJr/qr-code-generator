@@ -54,5 +54,6 @@
         "url_too_long": "The URL is too long (2000 characters max)",
         "invalid_eye_color": "The custom eye color is invalid"
     },
-    "style_title": "Style"
+    "style_title": "Style",
+    "theme_toggle": "Toggle dark mode"
 }

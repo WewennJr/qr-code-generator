@@ -54,5 +54,6 @@
         "url_too_long": "Die URL ist zu lang (maximal 2000 Zeichen)",
         "invalid_eye_color": "Die eigene Augenfarbe ist ungültig"
     },
-    "style_title": "Stil"
+    "style_title": "Stil",
+    "theme_toggle": "Dunkelmodus umschalten"
 }

@@ -27,6 +27,7 @@ MAX_GRADIENT_STOPS = 5
 LOGO_MAX_DIMENSION = 0.22  # Logo max 22% of QR code size for scannability
 LOGO_PADDING = 10
 LOGO_PLATE_RADIUS = 0.22  # Relative to plate size
+LOGO_PLATE_SUPERSAMPLE = 4  # Render the logo plate at 4x then downscale
 
 ALLOWED_MODULE_STYLES = {"square", "rounded", "dots", "diamond"}
 ALLOWED_EYE_STYLES = {"square", "rounded", "circle"}
@@ -207,39 +208,44 @@ def get_requested_logo() -> Optional[bytes]:
 
 
 def embed_logo_in_qr(qr_img: Image.Image, logo_data: bytes, back_color: str = "#ffffff") -> Image.Image:
+    """Embed a logo on a clean, anti-aliased rounded plate.
+
+    Both the plate and the logo are rendered at 4x resolution then downscaled,
+    so rounded corners and logo edges look crisp instead of pixelated.
+    """
     try:
-        logo_img = Image.open(io.BytesIO(logo_data))
-        if logo_img.mode != "RGBA":
-            logo_img = logo_img.convert("RGBA")
+        logo = Image.open(io.BytesIO(logo_data))
+        if logo.mode != "RGBA":
+            logo = logo.convert("RGBA")
 
         qr_width, qr_height = qr_img.size
-        max_plate_size = int(min(qr_width, qr_height) * LOGO_MAX_DIMENSION)
+        plate_size = int(min(qr_width, qr_height) * LOGO_MAX_DIMENSION)
+        hi_size = plate_size * LOGO_PLATE_SUPERSAMPLE
+        hi_padding = LOGO_PADDING * LOGO_PLATE_SUPERSAMPLE
 
-        # Keep aspect ratio, fit inside plate with padding
-        logo_img.thumbnail(
-            (max_plate_size - 2 * LOGO_PADDING, max_plate_size - 2 * LOGO_PADDING),
+        # Keep aspect ratio, fit the logo inside the plate with padding
+        logo.thumbnail(
+            (hi_size - 2 * hi_padding, hi_size - 2 * hi_padding),
             Image.Resampling.LANCZOS,
         )
+        logo_width, logo_height = logo.size
 
-        logo_width, logo_height = logo_img.size
-        plate_size = max_plate_size
+        plate = Image.new("RGBA", (hi_size, hi_size), (0, 0, 0, 0))
+        plate_draw = ImageDraw.Draw(plate)
+        plate_draw.rounded_rectangle(
+            [0, 0, hi_size - 1, hi_size - 1],
+            radius=int(hi_size * LOGO_PLATE_RADIUS),
+            fill=(*hex_to_rgb(back_color), 255),
+        )
+        plate.paste(logo, ((hi_size - logo_width) // 2, (hi_size - logo_height) // 2), logo)
 
+        plate = plate.resize((plate_size, plate_size), Image.Resampling.LANCZOS)
+
+        qr_img = qr_img.convert("RGBA")
         plate_x = (qr_width - plate_size) // 2
         plate_y = (qr_height - plate_size) // 2
 
-        # Paint a clean rounded plate, fully covering modules underneath
-        qr_img = qr_img.convert("RGBA")
-        plate_draw = ImageDraw.Draw(qr_img)
-        plate_draw.rounded_rectangle(
-            [plate_x, plate_y, plate_x + plate_size, plate_y + plate_size],
-            radius=int(plate_size * LOGO_PLATE_RADIUS),
-            fill=(*hex_to_rgb(back_color), 255),
-        )
-
-        # Center logo on the plate
-        paste_x = plate_x + (plate_size - logo_width) // 2
-        paste_y = plate_y + (plate_size - logo_height) // 2
-        qr_img.paste(logo_img, (paste_x, paste_y), logo_img)
+        qr_img.paste(plate, (plate_x, plate_y), plate)
 
         return qr_img.convert("RGB")
     except Exception:
@@ -562,8 +568,7 @@ def index():
             "gradient_colors": ["#000000"],
             "style": "square",
             "eye_style": "square",
-            "use_eye_color": False,
-            "eye_color": "#2563eb",
+            "eye_color": None,
         },
         None,
     )

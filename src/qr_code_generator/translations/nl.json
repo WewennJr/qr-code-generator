@@ -54,5 +54,6 @@
         "url_too_long": "De URL is te lang (maximaal 2000 tekens)",
         "invalid_eye_color": "De aangepaste oogkleur is ongeldig"
     },
-    "style_title": "Stijl"
+    "style_title": "Stijl",
+    "theme_toggle": "Donkere modus wisselen"
 }

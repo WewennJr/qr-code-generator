@@ -54,5 +54,6 @@
         "url_too_long": "Adres URL jest za długi (maksymalnie 2000 znaków)",
         "invalid_eye_color": "Własny kolor oczu jest nieprawidłowy"
     },
-    "style_title": "Styl"
+    "style_title": "Styl",
+    "theme_toggle": "Przełącz tryb ciemny"
 }
