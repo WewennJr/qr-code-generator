@@ -89,6 +89,8 @@ def get_brands() -> dict:
                 svg_text = svg_file.read_text(encoding="utf-8")
             except OSError:
                 continue
+            if "<svg" not in svg_text or "</svg>" not in svg_text:
+                continue  # skip corrupt/invalid files gracefully
             _brand_svgs_cache[brand_id] = {
                 "name": meta["name"],
                 "color": meta["color"],
