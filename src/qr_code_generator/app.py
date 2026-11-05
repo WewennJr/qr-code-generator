@@ -24,8 +24,8 @@ MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2MB
 MAX_LOGO_DIMENSION_PX = 1000  # Downscale oversized logos before embedding
 MAX_URL_LENGTH = 2048
 MAX_GRADIENT_STOPS = 5
-LOGO_MAX_DIMENSION = 0.32  # Logo plate max 30% of QR size for scannability
-LOGO_PADDING_RATIO = 0.28  # White border around the logo, relative to the plate
+LOGO_MAX_DIMENSION = 0.28  # Logo plate max 28% of QR size for scannability
+LOGO_PADDING_RATIO = 0.17  # White border around the logo, relative to the plate
 LOGO_PLATE_RADIUS = 0.30  # Relative to the smaller plate side
 LOGO_PLATE_SUPERSAMPLE = 4  # Render the logo plate at 4x then downscale
 
